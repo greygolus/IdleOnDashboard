@@ -26,21 +26,22 @@ http://localhost:4173/
 
 ## Hosting
 
-Best option for beta: host with the included Node server so `/api/profiles` and wiki image proxying work reliably.
+Recommended beta host: Vercel.
 
-```bash
-npm start
-```
+- Static files are served directly from the repo.
+- Mirrored icon/image assets live in `assets/` so the dashboard does not depend on wiki image hotlinking.
+- `api/profiles.js` provides the `/api/profiles` serverless route for the `Check Profile` button.
 
-Static hosting can work for most of the dashboard, but profile fetching depends on whether the Toolbox profile worker allows the hosted origin. The app tries `/api/profiles` first and falls back to the worker URL.
+The included `server.js` is still useful for local testing with `npm start`.
 
 ## Files
 
 - `index.html` - dashboard markup
 - `styles.css` - layout and theme
 - `app.js` - dashboard logic and saved state
-- `server.js` - local/hosted static server plus profile/wiki proxy
-- `references/IdleonToolbox/` - cloned Toolbox reference/assets used for local icons
+- `server.js` - local static server plus profile/wiki proxy
+- `api/profiles.js` - Vercel serverless profile proxy
+- `assets/` - published local icons/images
 
 ## Discord Beta Post Draft
 
