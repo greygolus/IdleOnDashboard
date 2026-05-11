@@ -1,0 +1,13 @@
+{
+  "name": "idleon-dashboard",
+  "version": "0.1.0-beta",
+  "private": true,
+  "description": "Beta launch dashboard for IdleOn tools, public timers, community sheets, and Toolbox profile data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

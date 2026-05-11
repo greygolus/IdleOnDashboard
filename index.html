@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IdleOn Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="hero">
+          <div>
+            <h1 id="page-title">IdleOn Dashboard</h1>
+            <p class="subtitle">A focused launch board for planners, optimizers, reviews, and reference sheets.</p>
+          </div>
+          <div class="hero-actions" aria-label="Dashboard actions">
+            <button class="icon-button" id="scrollBottom" type="button" title="Jump to Current Intel">
+              <span class="icon icon-down" aria-hidden="true"></span>
+              <span class="sr-only">Jump to Current Intel</span>
+            </button>
+            <button class="open-favorites-button" id="openFavorites" type="button" title="Open favorites">Open Favorites</button>
+          </div>
+        </div>
+
+        <section class="dashboard-section" id="toolsSection" aria-label="Tool cards">
+          <div class="section-heading">
+            <h2>Tools</h2>
+            <div class="section-tools" data-layout-controls="tools"></div>
+          </div>
+          <section class="grid" id="toolGrid" aria-live="polite"></section>
+        </section>
+
+        <div class="intel-workbench">
+          <section class="dashboard-section intel-section" id="currentIntel" aria-label="Idleon current information">
+            <div class="section-heading">
+              <h2>Current Intel</h2>
+            </div>
+
+            <div class="rotation-grid" id="rotationGrid">
+              <article class="utility-card rate-card custom-card" data-section-id="intel" data-card-id="rate-card">
+                <div class="panel-heading">
+                  <h2>Rate Calculator</h2>
+                  <span>Convert</span>
+                </div>
+                <div class="rate-inputs">
+                  <label>
+                    <span>Amount</span>
+                    <input id="rateValue" type="text" inputmode="decimal" placeholder="1000, 2.5M, 1B">
+                  </label>
+                  <label>
+                    <span>Per</span>
+                    <select id="rateUnit">
+                      <option value="minute">Minute</option>
+                      <option value="hour">Hour</option>
+                      <option value="day">Day</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="rate-results" id="rateResults"></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="dashboard-section checklist-section" aria-label="Checklist">
+            <div class="section-heading">
+              <h2>Checklist</h2>
+            </div>
+            <article class="utility-card checklist-card">
+              <div class="checklist-card-meta">
+                <span class="countdown" id="checklistStatus">Daily reset</span>
+              </div>
+              <div class="checklist-controls">
+                <label>
+                  <input id="idleonResetTime" type="time" value="00:00">
+                </label>
+              </div>
+              <form class="checklist-add" id="checklistForm">
+                <select id="checklistType" title="Choose checklist type">
+                  <option value="current">Current Goal</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+                <input id="checklistInput" type="text" placeholder="Add checklist item">
+                <button type="submit" title="Add this item to the daily checklist.">Add</button>
+              </form>
+              <div class="checklist-list" id="checklistList"></div>
+            </article>
+          </section>
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="Quick tools">
+        <section class="link-pad" data-side-id="links" aria-label="Idleon community and platform links">
+          <div class="icon-links" id="wikiLinks"></div>
+        </section>
+
+        <section data-side-id="controls">
+          <div class="panel-heading">
+            <h2>Controls</h2>
+            <span id="toolCount">0</span>
+          </div>
+          <div class="quick-list" id="quickList"></div>
+        </section>
+
+        <section data-side-id="saved">
+          <div class="panel-heading">
+            <h2>Saved Links</h2>
+            <button id="manageSavedLinks" type="button" title="Open the full saved resource library.">Manage</button>
+          </div>
+          <form class="saved-link-form" id="savedLinkForm">
+            <p class="sync-meta">Add personal links here. The first few saved resources show below; use Manage for the full sheet library.</p>
+            <label>
+              <span>Name</span>
+              <input id="savedLinkName" type="text" placeholder="My extra link">
+            </label>
+            <label>
+              <span>URL</span>
+              <input id="savedLinkUrl" type="url" placeholder="https://...">
+            </label>
+            <button type="submit" title="Save a personal link for quick access from this dashboard.">Add Link</button>
+          </form>
+          <div class="saved-links" id="savedLinks"></div>
+        </section>
+
+        <section id="toolboxPanel" data-side-id="toolbox">
+          <div class="panel-heading">
+            <h2>Toolbox Data</h2>
+            <span id="syncStatus">Offline</span>
+          </div>
+          <div class="account-panel">
+            <p class="toolbox-help">This checks your latest updated public Toolbox data for easy access to use for all the other tools.</p>
+            <label>
+              <span>Toolbox Username</span>
+              <input id="toolboxUsername" type="text" placeholder="Lil_bo">
+            </label>
+            <label>
+              <span>Account Link</span>
+              <input id="accountLink" type="url" placeholder="https://idleontoolbox.com/?profile=..." readonly title="Click this field to copy the Toolbox profile link.">
+            </label>
+            <button id="copyLilBoProfile" type="button" title="Fill in Lil_bo, save that public Toolbox link, and copy it for testing.">Use Lil_bo For Testing</button>
+            <div class="button-row">
+              <button id="fetchProfileData" type="button" title="Check the public Toolbox profile and show when its uploaded JSON was last updated.">Check Profile</button>
+              <button id="copyRawJson" type="button" title="Copy the fetched public Toolbox JSON for use in tools that ask for Idleon JSON data.">Copy JSON</button>
+            </div>
+            <p class="sync-meta" id="syncMeta">Enter a public Toolbox username to build the link and fetch shared profile data.</p>
+          </div>
+        </section>
+
+        <section data-side-id="manual">
+          <div class="panel-heading">
+            <h2>Manual JSON</h2>
+            <span id="manualJsonStatus">Empty</span>
+          </div>
+          <div class="account-panel">
+            <p class="sync-meta">If your profile is private or you just need a place to store your data for using the other tools.</p>
+            <button id="pasteManualJson" type="button" title="Save valid Idleon JSON from your clipboard in a separate manual JSON slot.">Paste JSON From Clipboard</button>
+            <button id="copyManualJson" type="button" title="Copy the manually saved JSON back to your clipboard.">Copy Manual JSON</button>
+            <button id="clearManualJson" type="button" title="Clear only the manually saved JSON.">Clear Manual JSON</button>
+          </div>
+        </section>
+
+        <section id="notesPanel">
+          <div class="panel-heading">
+            <h2>Notes</h2>
+            <span>Local</span>
+          </div>
+          <textarea id="notes" spellcheck="true" placeholder="Jot down what you are checking next."></textarea>
+        </section>
+      </aside>
+      <div id="pageBottom" aria-hidden="true"></div>
+    </main>
+
+    <nav class="mobile-dock" aria-label="Mobile dashboard shortcuts">
+      <button type="button" data-mobile-jump="#toolGrid" title="Jump to tools">
+        <span class="mobile-dock-icon mobile-icon-tools" aria-hidden="true"></span>
+        <span>Tools</span>
+      </button>
+      <button type="button" data-mobile-jump="#currentIntel" title="Jump to current intel">
+        <span class="mobile-dock-icon mobile-icon-intel" aria-hidden="true"></span>
+        <span>Intel</span>
+      </button>
+      <button type="button" data-mobile-jump="#toolboxPanel" title="Jump to Toolbox Data">
+        <span class="mobile-dock-icon mobile-icon-data" aria-hidden="true"></span>
+        <span>Data</span>
+      </button>
+      <button type="button" data-mobile-jump="#notesPanel" title="Jump to notes">
+        <span class="mobile-dock-icon mobile-icon-notes" aria-hidden="true"></span>
+        <span>Notes</span>
+      </button>
+      <button type="button" data-mobile-jump=".hero" title="Jump to top">
+        <span class="mobile-dock-icon mobile-icon-top" aria-hidden="true"></span>
+        <span>Top</span>
+      </button>
+    </nav>
+
+    <div class="modal-backdrop" id="ripModal" hidden>
+      <div class="rip-modal" role="dialog" aria-modal="true" aria-labelledby="ripTitle">
+        <img src="https://idleon.wiki/images/2/28/Graveyard_Shift.png" alt="">
+        <h2 id="ripTitle">RIP Old Idleon Tools</h2>
+        <p>RIP to IdleOn; Efficiency, Insight, Companion, and all the other outdated and dead community tools. They were good while they lasted but all good things have to come to an end just like this site will one day.</p>
+        <p>Also, big thank you to Morta1, the Wiki people, and everyone from the discord, this site would not be possible without everyone.</p>
+        <button id="closeRipModal" type="button">Pay respects</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="favoritesModal" hidden>
+      <div class="favorites-modal" role="dialog" aria-modal="true" aria-labelledby="favoritesTitle">
+        <div class="panel-heading">
+          <h2 id="favoritesTitle">Favorite Links</h2>
+          <button id="closeFavoritesModal" type="button">Close</button>
+        </div>
+        <p>Open each favorite from here. This keeps the dashboard open when the browser blocks multi-tab launches.</p>
+        <div class="favorites-modal-list" id="favoritesModalList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="savedLinksModal" hidden>
+      <div class="favorites-modal saved-manager-modal" role="dialog" aria-modal="true" aria-labelledby="savedLinksTitle">
+        <div class="panel-heading">
+          <h2 id="savedLinksTitle">Saved Links Menu</h2>
+          <button id="closeSavedLinksModal" type="button">Close</button>
+        </div>
+        <p>Browse community sheets, add your copied sheet links, edit custom links, and restore hidden presets.</p>
+        <div class="saved-manager-list" id="savedLinksManagerList"></div>
+      </div>
+    </div>
+
+    <template id="toolCardTemplate">
+      <article class="tool-card">
+        <div class="card-top">
+          <img class="favicon" alt="">
+        </div>
+        <div>
+          <p class="category"></p>
+          <h2></h2>
+          <p class="description"></p>
+        </div>
+        <div class="tag-row"></div>
+        <div class="card-actions">
+          <a class="primary-action" target="_blank" rel="noopener noreferrer">Open</a>
+          <button class="copy-link" type="button">Copy URL</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
