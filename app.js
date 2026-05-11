@@ -319,9 +319,59 @@ const savedLinksModal = document.querySelector("#savedLinksModal");
 const savedLinksManagerList = document.querySelector("#savedLinksManagerList");
 
 const isLocalDashboard = () => ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const localWikiAssets = new Set([
+  "24px-Console_Jewel_Pyrite_Pyramite.png",
+  "24px-Lab_-_Conductive_Nanochip.png",
+  "24px-Lab_-_Galvanic_Motherboard.png",
+  "24px-Lab_-_Omega_Motherboard.png",
+  "32px-Killroy_Skull.png",
+  "32px-Main_Catacomb_UI.png",
+  "32px-Main_Hardwood_UI.png",
+  "32px-The_Crow_Perch.png",
+  "69px-Apple_Store_Button.png",
+  "69px-Discord_Button.png",
+  "69px-Google_Play_Button.png",
+  "69px-Reddit_Button.png",
+  "69px-Steam_Button.png",
+  "69px-Twitch_Button.png",
+  "69px-Twitter_Button.png",
+  "69px-Web_Button.png",
+  "FarmCrop11.png",
+  "FarmCrop3.png",
+  "FarmCrop32.png",
+  "FarmCrop41.png",
+  "FarmCrop53.png",
+  "FarmCrop64.png",
+  "FarmCrop77.png",
+  "FarmCrop79.png",
+  "Farming_Skill_Icon.png",
+  "favicon.png",
+  "Graveyard_Shift.png",
+  "Happy_Hour_Icon.png",
+  "Idleon_Banner.png",
+  "Meritocracy_Bonus_1.png",
+  "Mutalius_Cuboid_Icon.png",
+  "Research_Skill_Icon.png",
+  "Trophie.png"
+]);
+
+function mirroredWikiAsset(assetPath) {
+  try {
+    const url = assetPath.startsWith("http")
+      ? new URL(assetPath)
+      : new URL(assetPath, "https://idleon.wiki");
+    const fileName = decodeURIComponent(url.pathname.split("/").pop() || "");
+    return localWikiAssets.has(fileName) ? `assets/wiki/${fileName}` : "";
+  } catch {
+    return "";
+  }
+}
+
 const wikiAsset = (assetPath) => {
   if (!assetPath) return "";
   if (assetPath.startsWith("./") || assetPath.startsWith("assets/")) return encodeURI(assetPath);
+  const localMirror = mirroredWikiAsset(assetPath);
+  if (localMirror) return encodeURI(localMirror);
   if (!isLocalDashboard()) {
     if (assetPath.startsWith("http")) return assetPath;
     if (assetPath.startsWith("/")) return encodeURI(`https://idleon.wiki${assetPath}`);
