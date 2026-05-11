@@ -321,9 +321,11 @@ const savedLinksManagerList = document.querySelector("#savedLinksManagerList");
 const isLocalDashboard = () => ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const wikiAsset = (assetPath) => {
   if (!assetPath) return "";
-  if (assetPath.startsWith("references/") || assetPath.startsWith("./")) return encodeURI(assetPath);
+  if (assetPath.startsWith("./") || assetPath.startsWith("assets/")) return encodeURI(assetPath);
   if (!isLocalDashboard()) {
-    return assetPath.startsWith("http") ? assetPath : encodeURI(`https://idleon.wiki${assetPath}`);
+    if (assetPath.startsWith("http")) return assetPath;
+    if (assetPath.startsWith("/")) return encodeURI(`https://idleon.wiki${assetPath}`);
+    return encodeURI(assetPath);
   }
   if (assetPath.startsWith("https://idleon.wiki")) {
     const assetUrl = new URL(assetPath);

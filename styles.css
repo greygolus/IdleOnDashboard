@@ -69,7 +69,7 @@ button {
   background:
     linear-gradient(90deg, rgba(8, 18, 22, 0.88), rgba(8, 18, 22, 0.46) 52%, rgba(8, 18, 22, 0.1)),
     linear-gradient(0deg, rgba(13, 20, 21, 0.78), transparent 62%),
-    url("/images/d/da/Idleon_Banner.png") center / cover;
+    url("https://idleon.wiki/images/d/da/Idleon_Banner.png") center / cover;
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
