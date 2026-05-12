@@ -89,6 +89,7 @@ const checklistItemsKey = "idleon-dashboard-checklist-items";
 const checklistStateKey = "idleon-dashboard-checklist-state";
 const checklistSettingsKey = "idleon-dashboard-checklist-settings";
 const layoutKey = "idleon-dashboard-layout";
+const onboardingSeenKey = "idleon-dashboard-onboarding-seen";
 const sidebarOrderDefaults = ["links", "controls", "saved", "toolbox", "manual"];
 const fixedIntelOrder = ["quick-events", "exotic-market", "meritocracy-weekly", "weekly-battle", "lab-rotation", "rate-card"];
 const toolboxBaseUrl = "https://idleontoolbox.com/";
@@ -315,6 +316,8 @@ const manualJsonStatus = document.querySelector("#manualJsonStatus");
 const ripModal = document.querySelector("#ripModal");
 const favoritesModal = document.querySelector("#favoritesModal");
 const favoritesModalList = document.querySelector("#favoritesModalList");
+const onboardingModal = document.querySelector("#onboardingModal");
+const dontShowOnboarding = document.querySelector("#dontShowOnboarding");
 const savedLinksModal = document.querySelector("#savedLinksModal");
 const savedLinksManagerList = document.querySelector("#savedLinksManagerList");
 
@@ -1726,7 +1729,7 @@ function renderPublicRotations() {
           <small class="daily-tournament-detail">${rotation.dailyTournamentDetail || formatDailyTournamentLabel()}</small>
         </div>
         <div>
-          <span>Weekly Reset</span>
+          <span>Weekly Server Reset</span>
           <strong class="weekly-reset-countdown">${weeklyResetTime}</strong>
           <small>${weeklyResetLabel}</small>
         </div>
@@ -2824,6 +2827,10 @@ document.querySelector("#openFavorites").addEventListener("click", () => {
   showFavoritesModal();
 });
 
+document.querySelector("#openHelp")?.addEventListener("click", () => {
+  if (onboardingModal) onboardingModal.hidden = false;
+});
+
 document.querySelector("#scrollBottom").addEventListener("click", () => {
   currentIntel.scrollIntoView({ behavior: "smooth", block: "start" });
 });
@@ -2849,6 +2856,31 @@ document.querySelector("#closeFavoritesModal").addEventListener("click", () => {
 
 favoritesModal.addEventListener("click", (event) => {
   if (event.target === favoritesModal) favoritesModal.hidden = true;
+});
+
+function closeOnboarding(savePreference = false) {
+  if (!onboardingModal) return;
+  onboardingModal.hidden = true;
+  if (savePreference || dontShowOnboarding?.checked) {
+    localStorage.setItem(onboardingSeenKey, "true");
+  }
+}
+
+function maybeShowOnboarding() {
+  if (!onboardingModal || localStorage.getItem(onboardingSeenKey) === "true") return;
+  onboardingModal.hidden = false;
+}
+
+document.querySelector("#closeOnboardingModal")?.addEventListener("click", () => {
+  closeOnboarding(false);
+});
+
+document.querySelector("#finishOnboardingModal")?.addEventListener("click", () => {
+  closeOnboarding(true);
+});
+
+onboardingModal?.addEventListener("click", (event) => {
+  if (event.target === onboardingModal) closeOnboarding(false);
 });
 
 document.querySelector("#manageSavedLinks").addEventListener("click", () => {
@@ -3004,3 +3036,4 @@ setInterval(updatePublicRotationTimers, 1000);
 setInterval(refreshChecklistIfResetChanged, 1000);
 setInterval(refreshFastWikiTimers, 300000);
 render();
+maybeShowOnboarding();

@@ -20,6 +20,7 @@
               <span class="icon icon-down" aria-hidden="true"></span>
               <span class="sr-only">Jump to Current Intel</span>
             </button>
+            <button class="open-favorites-button secondary-help-button" id="openHelp" type="button" title="Open the dashboard guide">Help</button>
             <button class="open-favorites-button" id="openFavorites" type="button" title="Open favorites">Open Favorites</button>
           </div>
         </div>
@@ -27,6 +28,7 @@
         <section class="dashboard-section" id="toolsSection" aria-label="Tool cards">
           <div class="section-heading">
             <h2>Tools</h2>
+            <button class="help-dot" type="button" title="Tools are the main IdleOn websites and utilities. Full mode shows the first 6 tools; Compact mode can show more tools and saved links. Use Controls to favorite, reorder, or hide tools.">?</button>
             <div class="section-tools" data-layout-controls="tools"></div>
           </div>
           <section class="grid" id="toolGrid" aria-live="polite"></section>
@@ -36,6 +38,7 @@
           <section class="dashboard-section intel-section" id="currentIntel" aria-label="Idleon current information">
             <div class="section-heading">
               <h2>Current Intel</h2>
+              <button class="help-dot" type="button" title="Current Intel shows public rotation and timer info. Weekly Battle, Lab Rotation, and Exotic Market follow the weekly server reset. Event and tournament info can use your latest public Toolbox profile data.">?</button>
             </div>
 
             <div class="rotation-grid" id="rotationGrid">
@@ -66,6 +69,7 @@
           <section class="dashboard-section checklist-section" aria-label="Checklist">
             <div class="section-heading">
               <h2>Checklist</h2>
+              <button class="help-dot" type="button" title="Use Current Goals for one-time goals, Daily for tasks that reset at your chosen daily reset time, and Weekly for tasks that reset with the weekly server reset.">?</button>
             </div>
             <article class="utility-card checklist-card">
               <div class="checklist-card-meta">
@@ -93,12 +97,13 @@
 
       <aside class="side-panel" aria-label="Quick tools">
         <section class="link-pad" data-side-id="links" aria-label="Idleon community and platform links">
-          <div class="icon-links" id="wikiLinks"></div>
+          <div class="icon-links" id="wikiLinks" title="Official/community links, platforms, patch notes, SteamDB, and the old-tools memorial."></div>
         </section>
 
         <section data-side-id="controls">
           <div class="panel-heading">
             <h2>Controls</h2>
+            <button class="help-dot" type="button" title="Controls manage the Tools section. Star adds a favorite, the tool icon opens that tool, arrows change tool order, and the eye hides or shows that tool card. Saved links can also appear here after you add them.">?</button>
             <span id="toolCount">0</span>
           </div>
           <div class="quick-list" id="quickList"></div>
@@ -107,10 +112,11 @@
         <section data-side-id="saved">
           <div class="panel-heading">
             <h2>Saved Links</h2>
-            <button id="manageSavedLinks" type="button" title="Open the full saved resource library.">Manage</button>
+            <button class="help-dot" type="button" title="Saved Links stores personal links and community sheet copies. Built-in sheets have an Original link plus a field for your copied sheet. Use Manage for the full library.">?</button>
+            <button id="manageSavedLinks" type="button" title="Open the full saved resource library, edit custom links, restore hidden sheets, and choose which resources show in the sidebar.">Manage</button>
           </div>
           <form class="saved-link-form" id="savedLinkForm">
-            <p class="sync-meta">Add personal links here. The first few saved resources show below; use Manage for the full sheet library.</p>
+            <p class="sync-meta" title="Custom links are for anything personal: your own spreadsheet, a guide, a Discord doc, or another IdleOn site.">Add personal links here. The first few saved resources show below; use Manage for the full sheet library.</p>
             <label>
               <span>Name</span>
               <input id="savedLinkName" type="text" placeholder="My extra link">
@@ -127,6 +133,7 @@
         <section id="toolboxPanel" data-side-id="toolbox">
           <div class="panel-heading">
             <h2>Toolbox Data</h2>
+            <button class="help-dot" type="button" title="Enter a public Idleon Toolbox username, then Check Profile to fetch the latest public Toolbox upload. This is not live game data; it is only as fresh as the last public Toolbox update.">?</button>
             <span id="syncStatus">Offline</span>
           </div>
           <div class="account-panel">
@@ -151,6 +158,7 @@
         <section data-side-id="manual">
           <div class="panel-heading">
             <h2>Manual JSON</h2>
+            <button class="help-dot" type="button" title="Manual JSON is a local storage spot for JSON you copied elsewhere. It is separate from the Toolbox username flow.">?</button>
             <span id="manualJsonStatus">Empty</span>
           </div>
           <div class="account-panel">
@@ -164,6 +172,7 @@
         <section id="notesPanel">
           <div class="panel-heading">
             <h2>Notes</h2>
+            <button class="help-dot" type="button" title="Local notes save in this browser only. Use this for reminders while checking tools or planning upgrades.">?</button>
             <span>Local</span>
           </div>
           <textarea id="notes" spellcheck="true" placeholder="Jot down what you are checking next."></textarea>
@@ -213,6 +222,46 @@
         </div>
         <p>Open each favorite from here. This keeps the dashboard open when the browser blocks multi-tab launches.</p>
         <div class="favorites-modal-list" id="favoritesModalList"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="onboardingModal" hidden>
+      <div class="favorites-modal onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+        <div class="panel-heading">
+          <h2 id="onboardingTitle">How IdleOn Dashboard Works</h2>
+          <button id="closeOnboardingModal" type="button">Close</button>
+        </div>
+        <div class="onboarding-grid">
+          <section>
+            <h3>Tools</h3>
+            <p>Open the main IdleOn tools from the cards. Use Compact when you want more tools and saved links visible at once.</p>
+          </section>
+          <section>
+            <h3>Controls</h3>
+            <p>Star favorites, open tools from their icon, move tools with arrows, and hide/show tool cards with the eye button.</p>
+          </section>
+          <section>
+            <h3>Saved Links</h3>
+            <p>Add personal links directly. For community sheets, use Manage, open the original, make your own copy, then paste your copy link.</p>
+          </section>
+          <section>
+            <h3>Toolbox Data</h3>
+            <p>Enter a public Toolbox username and Check Profile. The dashboard uses the latest public Toolbox upload, not live game data.</p>
+          </section>
+          <section>
+            <h3>Current Intel</h3>
+            <p>Weekly Battle, Lab Rotation, Exotic Market, and weekly tasks follow the weekly server reset. Events can refresh from profile data.</p>
+          </section>
+          <section>
+            <h3>Checklist</h3>
+            <p>Current Goals are one-time goals, Daily resets at your chosen time, and Weekly resets with the weekly server reset.</p>
+          </section>
+        </div>
+        <label class="onboarding-check">
+          <input id="dontShowOnboarding" type="checkbox">
+          <span>Do not show this on startup again</span>
+        </label>
+        <button id="finishOnboardingModal" type="button">Got it</button>
       </div>
     </div>
 
