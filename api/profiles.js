@@ -15,7 +15,10 @@ module.exports = async function handler(request, response) {
         "Accept": "application/json"
       }
     });
-    const contentType = profileResponse.headers.get("content-type") || "application/json; charset=utf-8";
+    const upstreamContentType = profileResponse.headers.get("content-type") || "";
+    const contentType = upstreamContentType.includes("application/json")
+      ? "application/json; charset=utf-8"
+      : "text/plain; charset=utf-8";
     const body = await profileResponse.text();
 
     response.setHeader("Cache-Control", "no-store");
