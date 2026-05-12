@@ -499,6 +499,150 @@ function readTimeAway(profile) {
   }
 }
 
+const randomEventWorldMaps = [
+  [
+    ["GrasslandsA", "Spore Meadows"],
+    ["GrasslandsB", "Froggy Fields"],
+    ["SewerA", "Poopy Sewers"],
+    ["TreeInteriorA", "The Base Of The Bark"],
+    ["GrasslandsC", "Valley Of The Beans"],
+    ["SewerB", "Rats Nest"],
+    ["JungleA", "Jungle Perimeter"],
+    ["GrasslandsD", "Birch Enclave"],
+    ["TreeInteriorB", "Hollowed Trunk"],
+    ["JungleB", "Winding Willows"],
+    ["JungleC", "Vegetable Patch"],
+    ["ForestA", "Forest Outskirts"],
+    ["ForestB", "Encroaching Forest Villas"],
+    ["ForestC", "Tucked Away"],
+    ["TreeInteriorC", "Where the Branches End"]
+  ],
+  [
+    ["zDesertCalmA", "Jar Bridge"],
+    ["zDesertCalmB", "The Mimic Hole"],
+    ["zDesertCalmC", "Dessert Dunes"],
+    ["zDesertMildA", "The Grandioso Canyon"],
+    ["zDesertMildB", "Shifty Sandbox"],
+    ["zDesertMildC", "Pincer Plateau"],
+    ["zDesertMildD", "Slamabam Straightaway"],
+    ["zDesertNightA", "The Ring"],
+    ["zDesertNightB", "Up Up Down Down"],
+    ["zDesertNightC", "Sands of Time"],
+    ["zDesertNightD", "Djonnuttown"]
+  ],
+  [
+    ["ySnowA1", "Steep Sheep Ledge"],
+    ["ySnowA2", "Snowfield Outskirts"],
+    ["ySnowA3", "The Stache Split"],
+    ["ySnowB1", "Refrigeration Station"],
+    ["ySnowB2", "Mamooooth Mountain"],
+    ["ySnowB3", "Rollin' Tundra"],
+    ["ySnowB4", "Signature Slopes"],
+    ["ySnowB5", "Thermonuclear Climb"],
+    ["ySnowC1", "Waterlogged Entrance"],
+    ["ySnowC2", "Cryo Catacombs"],
+    ["ySnowC3", "Overpass of Sound"],
+    ["ySnowC4", "Crystal Basecamp"],
+    ["ySnowD1", "Wam Wonderland"]
+  ]
+];
+
+const randomEventNames = ["Meteorite", "Mega Grumblo", "Glacial Guild", "Snake Swarm", "Angry Frogs"];
+
+function getEventType(index) {
+  if (index < 0.045) return 0;
+  if (index < 0.087) return 1;
+  if (index < 0.129) return 2;
+  if (index < 0.171) return 3;
+  if (index < 0.213) return 4;
+  return -1;
+}
+
+function getEventMapOptions(eventType) {
+  const maps = [];
+  if ([0, 1, 3, 4].includes(eventType)) maps.push(...randomEventWorldMaps[0]);
+  if ([0, 1, 3].includes(eventType)) maps.push(...randomEventWorldMaps[1]);
+  if ([0, 2].includes(eventType)) maps.push(...randomEventWorldMaps[2]);
+  return maps;
+}
+
+function formatIntelDate(date) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short"
+  }).format(date);
+}
+
+function formatUtcDate(date) {
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = date.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+  const year = date.getUTCFullYear();
+  const hour = String(date.getUTCHours()).padStart(2, "0");
+  const minute = String(date.getUTCMinutes()).padStart(2, "0");
+  const second = String(date.getUTCSeconds()).padStart(2, "0");
+  return `${day} ${month}, ${year} ${hour}:${minute}:${second} (UTC)`;
+}
+
+function calculateRandomEvents(serverVars, timeAway) {
+  const randEventHour = Number(serverVars?.RandEvntHr);
+  const globalTime = Number(timeAway?.GlobalTime);
+  if (!Number.isFinite(randEventHour) || !Number.isFinite(globalTime)) return [];
+
+  const currentGlobalTime = Math.max(globalTime, Date.now() / 1000);
+  const seed = Math.round(Math.floor(currentGlobalTime / 3600));
+  const events = [];
+  for (let i = 0; i < 120; i += 1) {
+    const actualSeed = seed + i + randEventHour;
+    const eventType = getEventType(new WikiRandom(actualSeed).rand());
+    const eventMaps = getEventMapOptions(eventType);
+    if (!eventMaps.length) continue;
+    const mapIndex = Math.min(Math.floor(new WikiRandom(actualSeed + 1).rand() * eventMaps.length), eventMaps.length - 1);
+    const [, mapName] = eventMaps[mapIndex];
+    const date = new Date((seed + i) * 3600 * 1000);
+    if (date.getTime() + 3600 * 1000 <= Date.now()) continue;
+    events.push({
+      eventName: randomEventNames[eventType],
+      mapName,
+      date
+    });
+  }
+  return events;
+}
+
+function getThursdayStart(date, future = false) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  const offset = future
+    ? ((4 - day + 7) % 7 || 7)
+    : day === 4
+      ? 0
+      : -((day + 3) % 7 || 7);
+  start.setDate(start.getDate() + offset);
+  return new Date(start.getTime() - start.getTimezoneOffset() * 60 * 1000);
+}
+
+function calculateHappyHours(serverVars) {
+  const happyHours = Array.isArray(serverVars?.HappyHours) ? serverVars.HappyHours : [];
+  if (!happyHours.length) return [];
+  const secondsInHour = 3600;
+  const lastThursday = getThursdayStart(new Date(), false);
+  const dates = happyHours
+    .map((time) => (Number(time) + Math.round(lastThursday.getTime() / 1000) - secondsInHour) * 1000)
+    .filter((time) => Number.isFinite(time) && time > Date.now())
+    .map((time) => new Date(time));
+  if (dates.length) return dates;
+  const nextThursday = getThursdayStart(new Date(), true);
+  return happyHours
+    .map((time) => (Number(time) + Math.round(nextThursday.getTime() / 1000) - secondsInHour) * 1000)
+    .filter((time) => Number.isFinite(time))
+    .map((time) => new Date(time));
+}
+
 function getMeritocracyResetTarget(timeAway, baseTime = Date.now()) {
   const globalTime = Number(timeAway?.GlobalTime);
   if (!Number.isFinite(globalTime)) return "";
@@ -675,6 +819,28 @@ function syncLocalWeeklyRotations() {
   if (quickCard) {
     quickCard.weeklyResetDate = resetDate;
     quickCard.weeklyResetTarget = nextWikiResetTarget();
+    const events = calculateRandomEvents(serverVars, timeAway);
+    const nextEvent = events[0];
+    if (nextEvent) {
+      const active = nextEvent.date.getTime() <= Date.now();
+      quickCard.eventName = nextEvent.eventName;
+      quickCard.eventMap = nextEvent.mapName;
+      quickCard.eventWorld = "";
+      quickCard.eventTime = `${active ? "Active now" : formatDuration((nextEvent.date.getTime() - Date.now()) / 1000)} • ${formatUtcDate(nextEvent.date)} • ${formatIntelDate(nextEvent.date)}`;
+      quickCard.value = nextEvent.eventName;
+    } else {
+      quickCard.eventName = "Check Profile";
+      quickCard.eventMap = "Live random event data needs a fresh public Toolbox profile.";
+      quickCard.eventWorld = "";
+      quickCard.eventTime = "Use Check Profile after updating Toolbox.";
+      quickCard.value = "Check Profile";
+    }
+
+    const happyHours = calculateHappyHours(serverVars);
+    const nextHappyHour = happyHours[0];
+    quickCard.happyTime = nextHappyHour
+      ? `${formatDuration((nextHappyHour.getTime() - Date.now()) / 1000)} • ${formatUtcDate(nextHappyHour)} • ${formatIntelDate(nextHappyHour)}`
+      : "Use Check Profile after updating Toolbox.";
   }
 
   if (tournamentCard) {
@@ -761,15 +927,15 @@ const publicRotations = [
   {
     id: "quick-events",
     title: "Events",
-    value: "Mega Grumblo",
+    value: "Check Profile",
     detail: "",
     icon: "/images/2/28/Happy_Hour_Icon.png",
-    eventName: "Mega Grumblo",
-    eventMap: "Rats Nest",
-    eventWorld: "Blunder Hills",
-    eventTime: "06 May, 2026 20:00:00 (UTC)",
-    happyTime: "06 May, 2026 16:06:40 (UTC)",
-    weeklyResetDate: "May 7, 2026",
+    eventName: "Check Profile",
+    eventMap: "Live event data needs public Toolbox server variables.",
+    eventWorld: "",
+    eventTime: "Use Check Profile after updating Toolbox.",
+    happyTime: "Use Check Profile after updating Toolbox.",
+    weeklyResetDate: "",
     live: true
   },
   {
