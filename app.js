@@ -385,10 +385,8 @@ const wikiAsset = (assetPath) => {
   if (assetPath.startsWith("http")) return assetPath;
   return encodeURI(`/${assetPath}`);
 };
-const wikiFile = (file) => {
-  const filePath = `/wiki/Special:Redirect/file/${encodeURIComponent(file).replace(/%20/g, "_")}`;
-  return isLocalDashboard() ? filePath : `https://idleon.wiki${filePath}`;
-};
+const localWikiFileName = (file) => file.replace(/\s+/g, "_");
+const wikiFile = (file) => encodeURI(`assets/wiki/${localWikiFileName(file)}`);
 
 function hashSeed(seed, base = 5381) {
   let a = Math.imul(seed, -862048943);
