@@ -1,9 +1,9 @@
+references/
 node_modules/
+.git/
+.vercel/
 npm-debug.log*
 .DS_Store
 Thumbs.db
 .env
 .env.*
-references/
-
-.vercel
