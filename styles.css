@@ -273,14 +273,13 @@ h1 {
 
 .section-heading {
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .section-heading h2 {
   margin: 0;
-  margin-right: auto;
   color: #fff2b5;
   text-shadow: 0 3px 0 rgba(67, 42, 22, 0.9);
 }
@@ -317,6 +316,7 @@ h1 {
 .section-tools {
   display: flex;
   align-items: center;
+  margin-left: auto;
   justify-content: flex-end;
   gap: 8px;
 }
@@ -2348,10 +2348,6 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .section-heading {
-    align-items: start;
-  }
-
   .section-heading-side {
     display: grid;
     justify-items: end;
@@ -2418,27 +2414,30 @@ textarea:focus {
   }
 
   .rate-inputs,
-  .checklist-add,
   .checklist-item {
     grid-template-columns: 1fr;
   }
 
   .checklist-card {
     grid-template-areas:
-      "status"
-      "reset"
-      "add"
-      "list";
-    grid-template-columns: 1fr;
-    align-items: stretch;
+      "reset status"
+      "add add"
+      "list list";
+    grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+    align-items: start;
   }
 
   .checklist-card-meta {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
-  .checklist-controls {
-    grid-template-columns: 1fr;
+  .checklist-add {
+    grid-template-columns: minmax(128px, 150px) minmax(0, 1fr) auto;
+  }
+
+  .checklist-list {
+    margin-top: 2px;
+    align-self: start;
   }
 
   .mobile-dock {
