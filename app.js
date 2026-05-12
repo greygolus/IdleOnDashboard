@@ -90,6 +90,12 @@ const checklistStateKey = "idleon-dashboard-checklist-state";
 const checklistSettingsKey = "idleon-dashboard-checklist-settings";
 const layoutKey = "idleon-dashboard-layout";
 const onboardingSeenKey = "idleon-dashboard-onboarding-seen";
+const defaultChecklistItems = [
+  { id: "starter-daily-buy-shop-items", text: "Buy shop items", type: "daily", done: false },
+  { id: "starter-daily-register-tournament", text: "Register for tournament", type: "daily", done: false },
+  { id: "starter-daily-post-office", text: "Post office", type: "daily", done: false },
+  { id: "starter-weekly-killroy", text: "Killroy", type: "weekly", done: false }
+];
 const sidebarOrderDefaults = ["links", "controls", "saved", "toolbox", "manual"];
 const fixedIntelOrder = ["quick-events", "exotic-market", "meritocracy-weekly", "weekly-battle", "lab-rotation", "rate-card"];
 const toolboxBaseUrl = "https://idleontoolbox.com/";
@@ -2014,7 +2020,9 @@ function setChecklistSettings(settings) {
 
 function getChecklistItems() {
   try {
-    return JSON.parse(localStorage.getItem(checklistItemsKey) || "[]").map((item) => ({
+    const savedItems = localStorage.getItem(checklistItemsKey);
+    const parsedItems = savedItems ? JSON.parse(savedItems) : defaultChecklistItems;
+    return parsedItems.map((item) => ({
       id: item.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       text: item.text || "",
       type: item.type || "daily",
