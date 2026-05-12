@@ -1972,12 +1972,12 @@ textarea:focus {
 
   .side-panel [data-side-id="saved"] .panel-heading {
     display: grid;
-    grid-template-columns: auto auto;
-    justify-content: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: stretch;
     justify-items: center;
     align-items: center;
     gap: 5px;
-    text-align: center;
+    text-align: left;
   }
 
   .side-panel [data-side-id="saved"] .panel-heading > button {
@@ -1986,6 +1986,7 @@ textarea:focus {
   }
 
   .side-panel [data-side-id="saved"] .panel-heading h2 {
+    justify-self: start;
     margin-right: 0;
   }
 
@@ -1999,7 +2000,10 @@ textarea:focus {
 
   .side-panel [data-side-id="saved"] #manageSavedLinks {
     grid-column: 1 / -1;
+    justify-self: stretch;
     width: 100%;
+    min-height: 34px;
+    font-size: 0.78rem;
   }
 
   .saved-link-form {
