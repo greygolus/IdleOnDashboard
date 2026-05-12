@@ -67,6 +67,14 @@ const tools = [
     icon: "assets/toolbox/Justice_Monument_x1.png",
     description: "Justice Monument guide for understanding choices, rewards, and progression.",
     tags: ["justice", "monument", "guide"]
+  },
+  {
+    id: "idleon-guide-articles",
+    name: "Idleon Guide Articles",
+    category: "Guide",
+    url: "https://idleon.guide/category/guides/",
+    description: "Community guide articles for broader Idleon topics. Useful as a reference, though Discord and wiki info may be newer.",
+    tags: ["guides", "articles", "reference"]
   }
 ];
 
@@ -87,16 +95,8 @@ const toolboxBaseUrl = "https://idleontoolbox.com/";
 const profilesApiUrl = "https://profiles.idleontoolbox.workers.dev/api";
 const localProfilesApiUrl = "/api/profiles";
 const lilBoProfileUrl = "https://idleontoolbox.com/?profile=Lil_bo";
+const retiredSavedLinkIds = new Set(["preset-idleon-guide"]);
 const defaultSavedLinks = [
-  {
-    id: "preset-idleon-guide",
-    name: "Idleon Guide Articles",
-    url: "https://idleon.guide/category/guides/",
-    type: "guide",
-    preset: true,
-    group: "guide",
-    note: "Guide site. Discord guides may be more current."
-  },
   {
     id: "preset-sampling-skilling-checklist",
     name: "Sampling and Skilling Checklist",
@@ -1901,7 +1901,7 @@ function getSavedLinks() {
   try {
     const saved = localStorage.getItem(savedLinksKey);
     const links = saved ? JSON.parse(saved) : [];
-    const normalized = links.map(normalizeSavedLink);
+    const normalized = links.map(normalizeSavedLink).filter((link) => !retiredSavedLinkIds.has(link.id));
     const presetLinks = defaultSavedLinks.map((preset) => {
       const savedPreset = normalized.find((link) => (
         link.id === preset.id
@@ -1923,6 +1923,7 @@ function getSavedLinks() {
       });
     });
     const customLinks = normalized.filter((link) => (
+      !retiredSavedLinkIds.has(link.id) &&
       !defaultSavedLinks.some((preset) => link.id === preset.id || link.url === preset.url || link.name === preset.name)
     ));
     return [...presetLinks, ...customLinks];
@@ -1978,12 +1979,18 @@ function savedLinkCardId(link) {
 
 function savedLinkGroupLabel(group) {
   const labels = {
-    guide: "Guide Sites",
     current: "Community Sheets",
     outdated: "Outdated But Useful",
     custom: "Custom Links"
   };
   return labels[group] || "Other Resources";
+}
+
+function savedLinkKindLabel(link) {
+  if (!link.preset) return "Custom";
+  if (link.type === "doc") return "Doc";
+  if (link.type === "guide") return "Guide";
+  return "Sheet";
 }
 
 function getSavedPanelLinkIds(links = getSavedLinks()) {
@@ -2311,11 +2318,11 @@ function renderSavedLinks() {
         <strong>${escapeHtml(link.name)}</strong>
       </div>
       <div class="saved-link-actions ${isPreset ? "" : "saved-link-actions-single"}">
-        ${isPreset ? `<button class="saved-link-open-original" type="button" title="Open the original sheet.">Original</button>` : `<button class="saved-link-open-custom" type="button" title="Open this saved link.">Open</button>`}
+        ${isPreset ? `<button class="saved-link-open-original" type="button" title="Open the original ${escapeHtml(link.name)} resource.">Original</button>` : `<button class="saved-link-open-custom" type="button" title="Open ${escapeHtml(link.name)}.">Open</button>`}
       </div>
       ${isPreset ? `
         <label class="saved-link-copy-field">
-          <input class="saved-link-personal-url" type="url" value="${escapeHtml(link.personalUrl)}" placeholder="Paste your copied sheet link">
+          <input class="saved-link-personal-url" type="url" value="${escapeHtml(link.personalUrl)}" placeholder="Paste your copied sheet link" title="Paste your personal copy of ${escapeHtml(link.name)} here.">
         </label>
       ` : ""}
     `;
@@ -2397,21 +2404,35 @@ function renderSavedLinksManager() {
 
     const row = document.createElement("div");
     const visibleInSavedPanel = savedPanelIds.has(link.id);
+    const sideButtonText = link.showInSavedPanel ? "Unpin Side" : visibleInSavedPanel ? "Keep Side" : "Show Side";
     row.className = "saved-manager-item";
+    row.classList.toggle("is-preset-resource", link.preset);
     row.classList.toggle("is-hidden-preset", link.hiddenPreset);
     row.innerHTML = `
       <div class="saved-manager-title">
         <strong>${escapeHtml(link.name)}</strong>
-        <small>${escapeHtml(link.note || (link.preset ? (link.hiddenPreset ? "Hidden preset" : "Built-in resource") : "Custom link"))}</small>
+        <small>${escapeHtml([savedLinkKindLabel(link), link.hiddenPreset ? "hidden" : "", link.note].filter(Boolean).join(" - "))}</small>
       </div>
       ${link.preset ? `
-        <button class="saved-manager-open" type="button">Original</button>
-        <button class="saved-manager-restore" type="button">${link.hiddenPreset ? "Re-add" : "Reset"}</button>
+        <div class="saved-manager-actions">
+          <button class="saved-manager-open" type="button" title="Open the original ${escapeHtml(link.name)} resource.">Original</button>
+          <button class="saved-manager-restore" type="button" title="${link.hiddenPreset ? "Restore this built-in resource." : "Clear your copy and reset this resource."}">${link.hiddenPreset ? "Restore" : "Clear Copy"}</button>
+          <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this resource from the sidebar preview." : "Show this resource in the sidebar preview."}">${sideButtonText}</button>
+          <button class="saved-manager-remove" type="button" title="Hide this built-in resource from saved links.">Hide</button>
+        </div>
+        <label class="saved-manager-copy">
+          <span>Your copy</span>
+          <input class="saved-manager-personal-url" type="url" value="${escapeHtml(link.personalUrl)}" placeholder="Paste your copied sheet link">
+        </label>
       ` : `
         <input class="saved-manager-name" type="text" value="${escapeHtml(link.name)}" aria-label="Custom link name">
         <input class="saved-manager-url" type="url" value="${escapeHtml(link.url)}" aria-label="Custom link URL">
+        <div class="saved-manager-actions">
+          <button class="saved-manager-open" type="button" title="Open ${escapeHtml(link.name)}.">Open</button>
+          <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this link from the sidebar preview." : "Show this link in the sidebar preview."}">${sideButtonText}</button>
+          <button class="saved-manager-remove" type="button" title="Remove this custom link.">Remove</button>
+        </div>
       `}
-      <button class="saved-manager-sidebar" type="button">${visibleInSavedPanel ? "Hide From Side" : "Show In Side"}</button>
       <div class="saved-manager-icon-editor">
         <label>
           <span>Icon</span>
@@ -2421,14 +2442,7 @@ function renderSavedLinksManager() {
           <span>Color</span>
           <input class="saved-manager-icon-color" type="color" value="${escapeHtml(link.iconColor)}">
         </label>
-        <button class="saved-manager-remove" type="button">${link.preset ? "Hide" : "Remove"}</button>
       </div>
-      ${link.preset ? `
-        <label class="saved-manager-copy">
-          <span>Your copy</span>
-          <input class="saved-manager-personal-url" type="url" value="${escapeHtml(link.personalUrl)}" placeholder="Paste your copied sheet link">
-        </label>
-      ` : ""}
     `;
     row.querySelector(".saved-manager-open")?.addEventListener("click", () => launchUrl(link.url));
     row.querySelector(".saved-manager-sidebar")?.addEventListener("click", () => {
@@ -2675,10 +2689,13 @@ function renderCards() {
 
     favicon.src = toolIcon(tool);
     favicon.alt = "";
+    favicon.title = tool.name;
     category.textContent = tool.category;
     title.textContent = tool.name;
     description.textContent = tool.description;
     open.href = tool.url;
+    open.title = `Open ${tool.name}`;
+    copy.title = `Copy ${tool.name} URL`;
     open.addEventListener("click", (event) => {
       event.preventDefault();
       launchUrl(tool.url);
@@ -2688,6 +2705,7 @@ function renderCards() {
       const chip = document.createElement("span");
       chip.className = "tag";
       chip.textContent = tag;
+      chip.title = `${tool.name} tag: ${tag}`;
       tagRow.append(chip);
     });
 
@@ -2741,13 +2759,13 @@ function renderQuickList() {
     row.classList.toggle("is-favorite", state.favorites.has(tool.id));
     row.classList.toggle("is-hidden-tool", hiddenTools.has(tool.id));
     row.innerHTML = `
-      <button class="control-star" type="button" title="Star this tool."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <button class="control-open control-tool-icon" type="button" title="Open ${tool.name}.">
+      <button class="control-star" type="button" title="${state.favorites.has(tool.id) ? "Remove" : "Add"} ${escapeHtml(tool.name)} ${state.favorites.has(tool.id) ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
+      <button class="control-open control-tool-icon" type="button" title="Open ${escapeHtml(tool.name)}. ${escapeHtml(tool.description)}">
         <img src="${toolIcon(tool)}" alt="">
       </button>
-      <button class="control-move-up" type="button" title="Move tool card up."><span class="icon icon-arrow-up" aria-hidden="true"></span></button>
-      <button class="control-move-down" type="button" title="Move tool card down."><span class="icon icon-arrow-down" aria-hidden="true"></span></button>
-      <button class="control-hide" type="button" title="Hide or show this tool card."><span class="icon ${hiddenTools.has(tool.id) ? "icon-eye-closed" : "icon-eye-open"}" aria-hidden="true"></span></button>
+      <button class="control-move-up" type="button" title="Move ${escapeHtml(tool.name)} earlier in Tools."><span class="icon icon-arrow-up" aria-hidden="true"></span></button>
+      <button class="control-move-down" type="button" title="Move ${escapeHtml(tool.name)} later in Tools."><span class="icon icon-arrow-down" aria-hidden="true"></span></button>
+      <button class="control-hide" type="button" title="${hiddenTools.has(tool.id) ? "Show" : "Hide"} ${escapeHtml(tool.name)} in the Tools section."><span class="icon ${hiddenTools.has(tool.id) ? "icon-eye-closed" : "icon-eye-open"}" aria-hidden="true"></span></button>
     `;
     row.querySelector(".control-open").addEventListener("click", () => launchUrl(tool.url));
     row.querySelector(".control-star").addEventListener("click", () => {
@@ -2773,11 +2791,11 @@ function renderQuickList() {
     row.classList.toggle("is-favorite", link.favorite);
     row.classList.toggle("is-hidden-tool", !link.showInTools);
     row.innerHTML = `
-      <button class="control-star" type="button" title="Star this saved link."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <button class="control-open" type="button" title="Open ${link.name}.">
-        <span>${link.name}</span>
+      <button class="control-star" type="button" title="${link.favorite ? "Remove" : "Add"} ${escapeHtml(link.name)} ${link.favorite ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
+      <button class="control-open" type="button" title="Open ${escapeHtml(link.name)}.">
+        <span>${escapeHtml(link.name)}</span>
       </button>
-      <button class="control-hide" type="button" title="Show or hide this saved link in Tools."><span class="icon ${link.showInTools ? "icon-eye-open" : "icon-eye-closed"}" aria-hidden="true"></span></button>
+      <button class="control-hide" type="button" title="${link.showInTools ? "Hide" : "Show"} ${escapeHtml(link.name)} in compact Tools."><span class="icon ${link.showInTools ? "icon-eye-open" : "icon-eye-closed"}" aria-hidden="true"></span></button>
     `;
     row.querySelector(".control-open").addEventListener("click", () => launchUrl(savedLinkTarget(link)));
     row.querySelector(".control-star").addEventListener("click", () => {
