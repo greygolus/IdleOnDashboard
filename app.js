@@ -871,13 +871,10 @@ function syncLocalWeeklyRotations() {
         : "Load a public profile to show the current bonus and options.";
     meritocracyCard.icon = choices ? meritocracyIcon(choices.selected) : meritocracyIcon(0);
     meritocracyCard.items = choices
-      ? [
-        [`Current: ${choices.current.name}`, meritocracyIcon(choices.current.index)],
-        ...choices.options.map((option) => [
+      ? choices.options.map((option) => [
           `${option.name}${Number.isFinite(Number(option.percent)) ? ` (${option.percent}%)` : ""}`,
           meritocracyIcon(option.index)
         ])
-      ]
       : [];
   }
 
