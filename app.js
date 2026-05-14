@@ -84,6 +84,7 @@ const accountLinkKey = "idleon-dashboard-account-link";
 const usernameKey = "idleon-dashboard-toolbox-username";
 const rawPayloadKey = "idleon-dashboard-toolbox-payload";
 const manualJsonKey = "idleon-dashboard-manual-json";
+const intelSourceKey = "idleon-dashboard-intel-source";
 const savedLinksKey = "idleon-dashboard-saved-links";
 const checklistItemsKey = "idleon-dashboard-checklist-items";
 const checklistStateKey = "idleon-dashboard-checklist-state";
@@ -319,6 +320,7 @@ const accountLink = document.querySelector("#accountLink");
 const syncStatus = document.querySelector("#syncStatus");
 const syncMeta = document.querySelector("#syncMeta");
 const manualJsonStatus = document.querySelector("#manualJsonStatus");
+const useManualJsonForIntel = document.querySelector("#useManualJsonForIntel");
 const ripModal = document.querySelector("#ripModal");
 const favoritesModal = document.querySelector("#favoritesModal");
 const favoritesModalList = document.querySelector("#favoritesModalList");
@@ -483,9 +485,15 @@ function targetFromSeconds(seconds, baseTime = Date.now(), cycleSeconds = 0) {
 }
 
 function getProfileDataForIntel() {
+  const manual = getManualProfileData();
   const saved = getSavedPayload();
+  if (localStorage.getItem(intelSourceKey) === "manual" && manual) return manual;
   if (saved?.data || saved?.serverVars) return saved;
+  if (manual) return manual;
+  return null;
+}
 
+function getManualProfileData() {
   const manual = getManualJson();
   if (!manual) return null;
 
@@ -495,6 +503,15 @@ function getProfileDataForIntel() {
   } catch {
     return null;
   }
+}
+
+function setIntelSource(source) {
+  localStorage.setItem(intelSourceKey, source);
+  setManualJsonStatus();
+}
+
+function getIntelSourceLabel() {
+  return localStorage.getItem(intelSourceKey) === "manual" ? "Manual JSON" : "Toolbox";
 }
 
 function readTimeAway(profile) {
@@ -1896,7 +1913,13 @@ function getManualJson() {
 
 function setManualJsonStatus() {
   const saved = getManualJson();
-  manualJsonStatus.textContent = saved ? "Saved" : "Empty";
+  const source = getIntelSourceLabel();
+  manualJsonStatus.textContent = saved
+    ? source === "Manual JSON" ? "Intel" : "Saved"
+    : "Empty";
+  if (useManualJsonForIntel) {
+    useManualJsonForIntel.textContent = source === "Manual JSON" ? "Using Manual For Intel" : "Use Manual JSON For Intel";
+  }
 }
 
 function getSavedAccountLink() {
@@ -2653,6 +2676,7 @@ async function fetchProfileData(options = {}) {
       publicProfile: true
     };
     persistToolboxPayload(payload);
+    setIntelSource("toolbox");
     renderPublicRotations();
     setStatus(silent ? "Auto-synced" : "Checked", `Public profile for ${username} was last updated: ${formatTime(payload.lastUpdated)}.`);
   } catch (error) {
@@ -3003,6 +3027,16 @@ document.querySelector("#pasteManualJson").addEventListener("click", async () =>
   }
 });
 
+useManualJsonForIntel?.addEventListener("click", () => {
+  const manual = getManualProfileData();
+  if (!manual) {
+    manualJsonStatus.textContent = getManualJson() ? "Invalid" : "Empty";
+    return;
+  }
+  setIntelSource("manual");
+  renderPublicRotations();
+});
+
 document.querySelector("#copyManualJson").addEventListener("click", async () => {
   const saved = getManualJson();
   if (!saved) {
@@ -3015,6 +3049,7 @@ document.querySelector("#copyManualJson").addEventListener("click", async () => 
 
 document.querySelector("#clearManualJson").addEventListener("click", () => {
   localStorage.removeItem(manualJsonKey);
+  if (localStorage.getItem(intelSourceKey) === "manual") setIntelSource("toolbox");
   setManualJsonStatus();
   renderPublicRotations();
 });
