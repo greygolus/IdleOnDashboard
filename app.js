@@ -724,13 +724,21 @@ function getMeritocracyChoices(serverVars = {}) {
   const percents = toArray(serverVars.votePercent2).map(Number);
   if (!categories.length) return null;
 
-  const selected = categories[0];
   const optionIndexes = categories.slice(1);
   const options = optionIndexes.map((index, optionIndex) => ({
     index,
     percent: percents[optionIndex],
     name: meritocracyBonuses[index] || `Bonus ${index + 1}`
   }));
+  const winningOption = options.reduce((winner, option) => {
+    const optionPercent = Number(option.percent);
+    const winnerPercent = Number(winner?.percent);
+    if (!Number.isFinite(optionPercent)) return winner;
+    if (!winner || !Number.isFinite(winnerPercent) || optionPercent > winnerPercent) return option;
+    return winner;
+  }, null);
+  const selected = winningOption?.index ?? categories[0];
+  const visibleOptions = options.filter((option) => option.index !== selected);
 
   return {
     selected,
@@ -739,7 +747,7 @@ function getMeritocracyChoices(serverVars = {}) {
       index: selected,
       name: meritocracyBonuses[selected] || `Bonus ${selected + 1}`
     },
-    options
+    options: visibleOptions
   };
 }
 
