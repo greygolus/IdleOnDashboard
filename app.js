@@ -1038,10 +1038,10 @@ const weeklyBossesShop = [
   [
     { name: "Pink Headband", file: "Pink Headband.png", price: 999 },
     { name: "Killroy Skulls", file: "Killroy Skull.png", price: 14 },
-    { name: "Boss Battle Spillover", file: "Boss Battle Spillover.png", price: 25 },
     { name: "Bored To Death", file: "Bored To Death.png", price: 25 },
+    { name: "Boss Battle Spillover", file: "Boss Battle Spillover.png", price: 25 },
     { name: "The Crow Perch", file: "The Crow Perch.png", price: 125 },
-    { name: "Golden Nomwich", file: "Golden Nomwich.png", price: 12 },
+    { name: "Golden Food", file: "Golden Nomwich.png", price: 12 },
     { name: "Power Statue", file: "Power Statue.png", price: 12 },
     { name: "Silver Pocketwatch", file: "Silver Pocketwatch.png", price: 2 },
     { name: "Gold Pocketwatch", file: "Gold Pocketwatch.png", price: 30 }
