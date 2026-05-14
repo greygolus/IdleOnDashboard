@@ -9,10 +9,12 @@ module.exports = async function handler(request, response) {
   }
 
   try {
-    const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username)}`;
+    const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username)}&_=${Date.now()}`;
     const profileResponse = await fetch(target, {
+      cache: "no-store",
       headers: {
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Cache-Control": "no-cache"
       }
     });
     const upstreamContentType = profileResponse.headers.get("content-type") || "";

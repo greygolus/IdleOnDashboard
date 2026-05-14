@@ -37,8 +37,13 @@ function proxyProfile(request, response, url) {
     return;
   }
 
-  const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username.trim())}`;
-  https.get(target, (profileResponse) => {
+  const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username.trim())}&_=${Date.now()}`;
+  https.get(target, {
+    headers: {
+      "Accept": "application/json",
+      "Cache-Control": "no-cache"
+    }
+  }, (profileResponse) => {
     let body = "";
     profileResponse.setEncoding("utf8");
     profileResponse.on("data", (chunk) => {

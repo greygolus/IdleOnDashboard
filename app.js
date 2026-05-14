@@ -2610,17 +2610,24 @@ async function fetchProfileData(options = {}) {
   try {
     if (!silent) setStatus("Fetching", `Getting public Toolbox profile for ${username}.`);
     const encodedUsername = encodeURIComponent(username);
+    const cacheBust = Date.now();
     const profileUrls = window.location.protocol === "file:"
-      ? [`${profilesApiUrl}/profiles/?profile=${encodedUsername}`]
+      ? [`${profilesApiUrl}/profiles/?profile=${encodedUsername}&_=${cacheBust}`]
       : [
-        `${localProfilesApiUrl}?profile=${encodedUsername}`,
-        `${profilesApiUrl}/profiles/?profile=${encodedUsername}`
+        `${localProfilesApiUrl}?profile=${encodedUsername}&_=${cacheBust}`,
+        `${profilesApiUrl}/profiles/?profile=${encodedUsername}&_=${cacheBust}`
       ];
     let response = null;
     let lastError = null;
     for (const profileUrl of profileUrls) {
       try {
-        response = await fetch(profileUrl, { method: "GET" });
+        response = await fetch(profileUrl, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache"
+          }
+        });
         if (response.ok) break;
         lastError = new Error(`Profile request failed with ${response.status}.`);
       } catch (error) {
