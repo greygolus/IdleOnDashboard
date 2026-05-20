@@ -1,8 +1,16 @@
 {
   "name": "idleon-dashboard",
-  "version": "0.1.0-beta",
+  "version": "1.0.0",
   "private": true,
-  "description": "Beta launch dashboard for IdleOn tools, public timers, community sheets, and Toolbox profile data.",
+  "description": "A community launch dashboard for IdleOn tools, public timers, community sheets, and Toolbox profile data.",
+  "homepage": "https://idleon-dashboard.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/greygolus/IdleOnDashboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/greygolus/IdleOnDashboard/issues"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"

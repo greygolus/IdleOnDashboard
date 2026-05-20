@@ -1,18 +1,29 @@
 # IdleOn Dashboard
 
-A beta launch dashboard for Legends of IdleOn community tools, public wiki timers, Toolbox profile links/data, saved community sheets, notes, a rate calculator, and a personal checklist.
+IdleOn Dashboard is a community launch board for **Legends of IdleOn** tools, current intel, wiki timers, community sheets, Toolbox profile data, notes, goals, and quick links.
 
-## Beta Notes
+Live site: https://idleon-dashboard.vercel.app/
 
-- Toolbox data uses your public IdleOn Toolbox profile. It is not live game data.
-- To refresh account data, update your public profile in IdleOn Toolbox, then use `Check Profile`.
-- Saved community sheets live in `Saved Links > Manage`. Paste your own copied sheet URL there when a sheet is meant to be copied.
-- The sidebar only shows a small selected set of saved resources. Use `Show In Side` / `Hide From Side` in Manage to control that list.
-- Current Intel pulls public wiki/timer-style information where possible. Meritocracy uses public Toolbox profile data after `Check Profile`.
+## What It Does
 
-## Running Locally
+- Launches popular IdleOn tools from one page.
+- Shows Current Intel for events, weekly reset, weekly battle, lab rotation, exotic market, and Multi Meritocracy.
+- Uses public IdleOn Toolbox profile data when you enter a Toolbox username and click `Check Profile`.
+- Lets you paste manual JSON and use it as the Current Intel data source.
+- Stores community sheets and personal links locally in your browser.
+- Includes a checklist/goals area, notes, favorites, and a rate calculator.
 
-Requires Node.js.
+## Important Data Notes
+
+- This is not live game data.
+- Toolbox-based information is only as fresh as the public Toolbox profile you checked.
+- To refresh account data, update your public profile in IdleOn Toolbox, then use `Check Profile` on the dashboard.
+- Manual JSON is stored locally in your browser and can be selected as the Current Intel source.
+- Saved links, notes, checklist items, layout settings, and favorites are local browser storage.
+
+## Local Development
+
+Requires Node.js 18 or newer.
 
 ```bash
 npm start
@@ -26,37 +37,39 @@ http://localhost:4173/
 
 ## Hosting
 
-Recommended beta host: Vercel.
+The production site is hosted on Vercel.
 
 - Static files are served directly from the repo.
-- Mirrored icon/image assets live in `assets/` so the dashboard does not depend on wiki image hotlinking.
+- Mirrored icon/image assets live in `assets/`.
 - `api/profiles.js` provides the `/api/profiles` serverless route for the `Check Profile` button.
+- `server.js` is the local development server and profile/wiki proxy.
 
-The included `server.js` is still useful for local testing with `npm start`.
+## Project Files
 
-## Files
-
-- `index.html` - dashboard markup
-- `styles.css` - layout and theme
-- `app.js` - dashboard logic and saved state
+- `index.html` - dashboard markup and metadata
+- `styles.css` - layout and IdleOn-themed styling
+- `app.js` - dashboard logic and local saved state
 - `server.js` - local static server plus profile/wiki proxy
-- `api/profiles.js` - Vercel serverless profile proxy
+- `api/profiles.js` - Vercel serverless Toolbox profile proxy
 - `assets/` - published local icons/images
+- `robots.txt` and `sitemap.xml` - search indexing helpers
 
-## Discord Beta Post Draft
+## Contributing
 
-IdleOn Dashboard beta is ready to test.
+Feedback and suggestions are welcome through GitHub issues:
 
-It is a compact dashboard for IdleOn tools, wiki/current intel, community sheets, Toolbox profile links/data, notes, a rate calculator, and a checklist/goals area.
+https://github.com/greygolus/IdleOnDashboard/issues
 
-Important beta notes:
-- It uses public IdleOn Toolbox data only, so update your Toolbox profile and make it public before using `Check Profile`.
-- It is not live game data.
-- Saved community sheets are in `Saved Links > Manage`.
-- Current Intel is public/wiki-based except Meritocracy, which uses your checked Toolbox profile.
+Good issue topics include:
 
-Feedback wanted:
-- Broken links/icons
-- Bad layout at your screen size or browser zoom
-- Missing community sheets/tools
-- Confusing wording or buttons
+- broken links or icons
+- layout problems at specific screen sizes
+- missing community sheets or tools
+- confusing wording or controls
+- Current Intel data that does not match the source data
+
+## Credits
+
+Built with help from the IdleOn community. Big thanks to Morta1, the IdleOn Wiki contributors, the Discord community, and everyone who helped test the dashboard.
+
+IdleOn Dashboard is an unofficial community project and is not affiliated with or endorsed by LavaFlame2.
