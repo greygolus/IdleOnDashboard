@@ -2809,14 +2809,17 @@ function renderQuickList() {
     row.classList.toggle("is-hidden-tool", hiddenTools.has(tool.id));
     row.innerHTML = `
       <button class="control-star" type="button" title="${state.favorites.has(tool.id) ? "Remove" : "Add"} ${escapeHtml(tool.name)} ${state.favorites.has(tool.id) ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <button class="control-open control-tool-icon" type="button" title="Open ${escapeHtml(tool.name)}. ${escapeHtml(tool.description)}">
+      <a class="control-open control-tool-icon" href="${escapeHtml(tool.url)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(tool.name)}. ${escapeHtml(tool.description)}">
         <img src="${toolIcon(tool)}" alt="">
-      </button>
+      </a>
       <button class="control-move-up" type="button" title="Move ${escapeHtml(tool.name)} earlier in Tools."><span class="icon icon-arrow-up" aria-hidden="true"></span></button>
       <button class="control-move-down" type="button" title="Move ${escapeHtml(tool.name)} later in Tools."><span class="icon icon-arrow-down" aria-hidden="true"></span></button>
       <button class="control-hide" type="button" title="${hiddenTools.has(tool.id) ? "Show" : "Hide"} ${escapeHtml(tool.name)} in the Tools section."><span class="icon ${hiddenTools.has(tool.id) ? "icon-eye-closed" : "icon-eye-open"}" aria-hidden="true"></span></button>
     `;
-    row.querySelector(".control-open").addEventListener("click", () => launchUrl(tool.url));
+    row.querySelector(".control-open").addEventListener("click", (event) => {
+      event.preventDefault();
+      launchUrl(tool.url);
+    });
     row.querySelector(".control-star").addEventListener("click", () => {
       if (state.favorites.has(tool.id)) state.favorites.delete(tool.id);
       else state.favorites.add(tool.id);
@@ -2841,12 +2844,15 @@ function renderQuickList() {
     row.classList.toggle("is-hidden-tool", !link.showInTools);
     row.innerHTML = `
       <button class="control-star" type="button" title="${link.favorite ? "Remove" : "Add"} ${escapeHtml(link.name)} ${link.favorite ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <button class="control-open" type="button" title="Open ${escapeHtml(link.name)}.">
+      <a class="control-open" href="${escapeHtml(savedLinkTarget(link))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">
         <span>${escapeHtml(link.name)}</span>
-      </button>
+      </a>
       <button class="control-hide" type="button" title="${link.showInTools ? "Hide" : "Show"} ${escapeHtml(link.name)} in compact Tools."><span class="icon ${link.showInTools ? "icon-eye-open" : "icon-eye-closed"}" aria-hidden="true"></span></button>
     `;
-    row.querySelector(".control-open").addEventListener("click", () => launchUrl(savedLinkTarget(link)));
+    row.querySelector(".control-open").addEventListener("click", (event) => {
+      event.preventDefault();
+      launchUrl(savedLinkTarget(link));
+    });
     row.querySelector(".control-star").addEventListener("click", () => {
       const nextLinks = getSavedLinks();
       nextLinks[index] = { ...nextLinks[index], favorite: !nextLinks[index].favorite };
