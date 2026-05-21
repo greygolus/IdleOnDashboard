@@ -1288,8 +1288,12 @@ h1 {
   gap: 6px;
 }
 
+.saved-link a,
 .saved-link button,
 .saved-link input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   min-height: 30px;
   border: 2px solid var(--line);
@@ -1297,6 +1301,7 @@ h1 {
   color: var(--muted);
   background: #1d2a30;
   font-size: 0.78rem;
+  text-decoration: none;
 }
 
 .saved-link input[type="color"] {
@@ -2222,6 +2227,7 @@ textarea:focus {
 }
 
 .saved-manager-item input,
+.saved-manager-item a,
 .saved-manager-item button {
   min-height: 34px;
   border: 2px solid var(--line);
@@ -2230,11 +2236,19 @@ textarea:focus {
   background: #1d2a30;
 }
 
+.saved-manager-item a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .saved-manager-item input {
   min-width: 0;
   padding: 0 10px;
 }
 
+.saved-manager-item a,
 .saved-manager-item button {
   padding: 0 10px;
 }
@@ -2245,6 +2259,7 @@ textarea:focus {
   gap: 6px;
 }
 
+.saved-manager-actions a,
 .saved-manager-actions button {
   min-width: 0;
   padding: 0 8px;

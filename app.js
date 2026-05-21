@@ -2350,7 +2350,7 @@ function renderSavedLinks() {
         <strong>${escapeHtml(link.name)}</strong>
       </div>
       <div class="saved-link-actions ${isPreset ? "" : "saved-link-actions-single"}">
-        ${isPreset ? `<button class="saved-link-open-original" type="button" title="Open the original ${escapeHtml(link.name)} resource.">Original</button>` : `<button class="saved-link-open-custom" type="button" title="Open ${escapeHtml(link.name)}.">Open</button>`}
+        ${isPreset ? `<a class="saved-link-open-original" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>` : `<a class="saved-link-open-custom" href="${escapeHtml(savedLinkTarget(link))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>`}
       </div>
       ${isPreset ? `
         <label class="saved-link-copy-field">
@@ -2358,8 +2358,14 @@ function renderSavedLinks() {
         </label>
       ` : ""}
     `;
-    row.querySelector(".saved-link-open-original")?.addEventListener("click", () => launchUrl(link.url));
-    row.querySelector(".saved-link-open-custom")?.addEventListener("click", () => launchUrl(savedLinkTarget(link)));
+    row.querySelector(".saved-link-open-original")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      launchUrl(link.url);
+    });
+    row.querySelector(".saved-link-open-custom")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      launchUrl(savedLinkTarget(link));
+    });
     row.querySelector(".saved-link-personal-url")?.addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
       const personalUrl = event.target.value.trim();
@@ -2447,7 +2453,7 @@ function renderSavedLinksManager() {
       </div>
       ${link.preset ? `
         <div class="saved-manager-actions">
-          <button class="saved-manager-open" type="button" title="Open the original ${escapeHtml(link.name)} resource.">Original</button>
+          <a class="saved-manager-open" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>
           <button class="saved-manager-restore" type="button" title="${link.hiddenPreset ? "Restore this built-in resource." : "Clear your copy and reset this resource."}">${link.hiddenPreset ? "Restore" : "Clear Copy"}</button>
           <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this resource from the sidebar preview." : "Show this resource in the sidebar preview."}">${sideButtonText}</button>
           <button class="saved-manager-remove" type="button" title="Hide this built-in resource from saved links.">Hide</button>
@@ -2460,7 +2466,7 @@ function renderSavedLinksManager() {
         <input class="saved-manager-name" type="text" value="${escapeHtml(link.name)}" aria-label="Custom link name">
         <input class="saved-manager-url" type="url" value="${escapeHtml(link.url)}" aria-label="Custom link URL">
         <div class="saved-manager-actions">
-          <button class="saved-manager-open" type="button" title="Open ${escapeHtml(link.name)}.">Open</button>
+          <a class="saved-manager-open" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>
           <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this link from the sidebar preview." : "Show this link in the sidebar preview."}">${sideButtonText}</button>
           <button class="saved-manager-remove" type="button" title="Remove this custom link.">Remove</button>
         </div>
@@ -2476,7 +2482,10 @@ function renderSavedLinksManager() {
         </label>
       </div>
     `;
-    row.querySelector(".saved-manager-open")?.addEventListener("click", () => launchUrl(link.url));
+    row.querySelector(".saved-manager-open")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      launchUrl(link.url);
+    });
     row.querySelector(".saved-manager-sidebar")?.addEventListener("click", () => {
       const nextLinks = getSavedLinks();
       const nextPanelIds = getSavedPanelLinkIds(nextLinks);
