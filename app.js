@@ -91,6 +91,7 @@ const checklistStateKey = "idleon-dashboard-checklist-state";
 const checklistSettingsKey = "idleon-dashboard-checklist-settings";
 const layoutKey = "idleon-dashboard-layout";
 const onboardingSeenKey = "idleon-dashboard-onboarding-seen";
+const linkOpenModeKey = "idleon-dashboard-link-open-mode";
 const defaultChecklistItems = [
   { id: "starter-daily-buy-shop-items", text: "Buy shop items", type: "daily", done: false },
   { id: "starter-daily-register-tournament", text: "Register for tournament", type: "daily", done: false },
@@ -328,6 +329,7 @@ const onboardingModal = document.querySelector("#onboardingModal");
 const dontShowOnboarding = document.querySelector("#dontShowOnboarding");
 const savedLinksModal = document.querySelector("#savedLinksModal");
 const savedLinksManagerList = document.querySelector("#savedLinksManagerList");
+const stayOnDashboardToggle = document.querySelector("#stayOnDashboardToggle");
 
 const isLocalDashboard = () => ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const localWikiAssets = new Set([
@@ -1494,6 +1496,11 @@ function launchUrl(url, options = {}) {
   const newWindow = window.open(url, "_blank");
   if (newWindow) {
     newWindow.opener = null;
+    if (localStorage.getItem(linkOpenModeKey) === "stay") {
+      window.focus();
+    } else {
+      newWindow.focus();
+    }
   } else if (fallback) {
     window.location.href = url;
   }
@@ -2863,6 +2870,10 @@ document.querySelector("#openFavorites").addEventListener("click", () => {
   showFavoritesModal();
 });
 
+stayOnDashboardToggle?.addEventListener("change", () => {
+  localStorage.setItem(linkOpenModeKey, stayOnDashboardToggle.checked ? "stay" : "switch");
+});
+
 document.querySelector("#openHelp")?.addEventListener("click", () => {
   if (onboardingModal) onboardingModal.hidden = false;
 });
@@ -3072,6 +3083,9 @@ if (savedPayload) {
   setStatus("Cached", `Cached public profile data: ${formatTime(savedPayload.lastUpdated)}.`);
 }
 setManualJsonStatus();
+if (stayOnDashboardToggle) {
+  stayOnDashboardToggle.checked = localStorage.getItem(linkOpenModeKey) === "stay";
+}
 
 renderIconLinks(wikiLinks, [...publicLinks.communities, ...publicLinks.platforms, ...publicLinks.extras]);
 renderPublicRotations();
