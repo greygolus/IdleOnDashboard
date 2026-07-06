@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "A community launch dashboard for IdleOn tools, public timers, community sheets, and Toolbox profile data.",
-  "homepage": "https://idleon-dashboard.vercel.app/",
+  "homepage": "https://idleondashboard.com/",
   "repository": {
     "type": "git",
     "url": "https://github.com/greygolus/IdleOnDashboard.git"

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://idleon-dashboard.vercel.app/sitemap.xml
+Sitemap: https://idleondashboard.com/sitemap.xml

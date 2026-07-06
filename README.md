@@ -2,7 +2,7 @@
 
 IdleOn Dashboard is a community launch board for **Legends of IdleOn** tools, current intel, wiki timers, community sheets, Toolbox profile data, notes, goals, and quick links.
 
-Live site: https://idleon-dashboard.vercel.app/
+Live site: https://idleondashboard.com/
 
 ## What It Does
 
