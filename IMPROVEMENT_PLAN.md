@@ -2,6 +2,12 @@
 
 Prepared September 5, 2026.
 
+## Implementation progress
+
+- **Reliability release delivered:** automatic local recovery copies, backup/restore, protected saves, honest profile/source labels, request cancellation, and independent timer rollover. Live baseline: `71c01b7`.
+- **Resource discovery release:** all chosen resources in both densities; a separate library view; search, category and favorite filtering; direct favorite/visibility actions; named ordering controls that preserve mixed layouts; natural desktop scrolling; narrow-screen layouts; and keyboard-safe dialogs. Verified with 25 storage/profile/proxy tests and 27 browser scenarios, including upgrades from both prior live versions.
+- **Still planned:** checklist editing/reordering/undo, a unified profile panel, more contextual help, content review, and measured performance/accessibility work. The historical audit below describes the starting state; it is not a list of unresolved defects after these releases.
+
 **Recommendation:** evolve the existing dashboard in staged releases. Start with trustworthy data and protection of saved work, then simplify the daily experience and refresh the design. Keep its IdleOn identity, quick access to community tools, and browser-local ownership of personal information.
 
 The earlier rebuild brief is useful context. A complete replacement is a possible implementation approach, but the audit does not establish a need to replace the whole technology stack. The immediate improvements can be delivered without waiting for that decision.

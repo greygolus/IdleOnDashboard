@@ -59,11 +59,21 @@
 
         <section class="dashboard-section" id="toolsSection" aria-label="Tool cards">
           <div class="section-heading">
-            <h2>Tools</h2>
-            <button class="help-dot" type="button" title="Tools are the main IdleOn websites and utilities. Full mode shows the first 6 tools; Compact mode can show more tools and saved links. Use Controls to favorite, reorder, or hide tools.">?</button>
+            <h2>Tools &amp; links</h2>
+            <button class="help-dot" type="button" aria-label="About tools and links" title="Both display modes show all your chosen tools. Browse All resources to find community sheets and hidden tools. Your saved choices stay the same when you search.">?</button>
             <div class="section-tools" data-layout-controls="tools"></div>
           </div>
-          <section class="grid" id="toolGrid" aria-live="polite"></section>
+          <div class="resource-toolbar">
+            <div class="resource-views" role="group" aria-label="Resource view">
+              <button type="button" data-resource-view="dashboard" aria-pressed="true">My tools</button>
+              <button type="button" data-resource-view="library" aria-pressed="false">All resources</button>
+            </div>
+            <label class="resource-search"><span>Find a tool or link</span><input id="resourceSearch" type="search" placeholder="Search names, topics, or links" autocomplete="off"></label>
+            <label class="resource-filter"><span>Category</span><select id="resourceCategory"><option value="all">All categories</option><option value="favorites">Favorites</option><option value="Review">Account reviews</option><option value="Optimizer">Optimizers</option><option value="Reference">References</option><option value="Guide">Guides</option><option value="saved">Saved links &amp; sheets</option></select></label>
+            <button id="clearResourceFilters" class="resource-clear" type="button" hidden>Clear filters</button>
+          </div>
+          <div class="resource-summary"><p id="resourceResults" role="status" aria-live="polite"></p><button id="browseSavedResources" type="button">Manage saved links</button></div>
+          <section class="grid" id="toolGrid" aria-label="Resources"></section>
         </section>
 
         <div class="intel-workbench">
@@ -99,7 +109,7 @@
             </div>
           </section>
 
-          <section class="dashboard-section checklist-section" aria-label="Checklist">
+          <section class="dashboard-section checklist-section" id="checklistSection" aria-label="Checklist">
             <div class="section-heading">
               <h2>Checklist</h2>
               <button class="help-dot" type="button" title="Use Current Goals for one-time goals, Daily for tasks that reset at your chosen daily reset time, and Weekly for tasks that reset with the weekly server reset.">?</button>
@@ -135,8 +145,8 @@
 
         <section data-side-id="controls">
           <div class="panel-heading">
-            <h2>Controls</h2>
-            <button class="help-dot" type="button" title="Controls manage the Tools section. Star adds a favorite, the tool icon opens that tool, arrows change tool order, and the eye hides or shows that tool card. Saved links can also appear here after you add them.">?</button>
+            <h2>Tool settings</h2>
+            <button class="help-dot" type="button" aria-label="About tool settings" title="Star a favorite, open a resource by name, use the arrows to reorder, or choose Hide and Show. Hiding keeps your saved links and personal copies.">?</button>
             <span id="toolCount">0</span>
           </div>
           <div class="quick-list" id="quickList"></div>
@@ -217,7 +227,7 @@
     </main>
 
     <nav class="mobile-dock" aria-label="Mobile dashboard shortcuts">
-      <button type="button" data-mobile-jump="#toolGrid" title="Jump to tools">
+      <button type="button" data-mobile-jump="#toolsSection" title="Jump to tools">
         <span class="mobile-dock-icon mobile-icon-tools" aria-hidden="true"></span>
         <span>Tools</span>
       </button>
@@ -233,35 +243,35 @@
         <span class="mobile-dock-icon mobile-icon-notes" aria-hidden="true"></span>
         <span>Notes</span>
       </button>
-      <button type="button" data-mobile-jump=".hero" title="Jump to top">
-        <span class="mobile-dock-icon mobile-icon-top" aria-hidden="true"></span>
-        <span>Top</span>
+      <button type="button" data-mobile-jump="#checklistSection" title="Jump to tasks">
+        <span class="mobile-dock-icon mobile-icon-tasks" aria-hidden="true">✓</span>
+        <span>Tasks</span>
       </button>
     </nav>
 
-    <div class="modal-backdrop" id="ripModal" hidden>
-      <div class="rip-modal" role="dialog" aria-modal="true" aria-labelledby="ripTitle">
+    <dialog class="dashboard-dialog" id="ripModal" aria-labelledby="ripTitle">
+      <div class="rip-modal">
         <img src="assets/wiki/Graveyard_Shift.png" alt="">
         <h2 id="ripTitle">RIP Old Idleon Tools</h2>
         <p>RIP to IdleOn; Efficiency, Insight, Companion, and all the other outdated and dead community tools. They were good while they lasted but all good things have to come to an end just like this site will one day.</p>
         <p>Also, big thank you to Morta1, the Wiki people, everyone from the discord, and the people who helped me test. This site would not be possible without everyone.</p>
         <button id="closeRipModal" type="button">Pay respects</button>
       </div>
-    </div>
+    </dialog>
 
-    <div class="modal-backdrop" id="favoritesModal" hidden>
-      <div class="favorites-modal" role="dialog" aria-modal="true" aria-labelledby="favoritesTitle">
+    <dialog class="dashboard-dialog" id="favoritesModal" aria-labelledby="favoritesTitle">
+      <div class="favorites-modal">
         <div class="panel-heading">
           <h2 id="favoritesTitle">Favorite Links</h2>
           <button id="closeFavoritesModal" type="button">Close</button>
         </div>
-        <p>Open each favorite from here. This keeps the dashboard open when the browser blocks multi-tab launches.</p>
+        <p>Your starred tools and saved links, together in one place.</p>
         <div class="favorites-modal-list" id="favoritesModalList"></div>
       </div>
-    </div>
+    </dialog>
 
-    <div class="modal-backdrop" id="onboardingModal" hidden>
-      <div class="favorites-modal onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <dialog class="dashboard-dialog" id="onboardingModal" aria-labelledby="onboardingTitle">
+      <div class="favorites-modal onboarding-modal">
         <div class="panel-heading">
           <h2 id="onboardingTitle">How IdleOn Dashboard Works</h2>
           <button id="closeOnboardingModal" type="button">Close</button>
@@ -269,11 +279,11 @@
         <div class="onboarding-grid">
           <section>
             <h3>Tools</h3>
-            <p>Open the main IdleOn tools from the cards. Use Compact when you want more tools and saved links visible at once.</p>
+            <p>Open the main IdleOn tools from the cards. Search My tools or browse All resources. Full and Compact show the same chosen resources.</p>
           </section>
           <section>
-            <h3>Controls</h3>
-            <p>Star favorites, open tools from their icon, move tools with arrows, and hide/show tool cards with the eye button.</p>
+            <h3>Tool settings</h3>
+            <p>Star favorites beside any tool. Use Tool settings to change the order or show and hide resources. Your links and personal copies are kept when hidden.</p>
           </section>
           <section>
             <h3>Saved Links</h3>
@@ -298,10 +308,10 @@
         </label>
         <button id="finishOnboardingModal" type="button">Got it</button>
       </div>
-    </div>
+    </dialog>
 
-    <div class="modal-backdrop" id="savedLinksModal" hidden>
-      <div class="favorites-modal saved-manager-modal" role="dialog" aria-modal="true" aria-labelledby="savedLinksTitle">
+    <dialog class="dashboard-dialog" id="savedLinksModal" aria-labelledby="savedLinksTitle">
+      <div class="favorites-modal saved-manager-modal">
         <div class="panel-heading">
           <h2 id="savedLinksTitle">Saved Links Menu</h2>
           <button id="closeSavedLinksModal" type="button">Close</button>
@@ -309,7 +319,7 @@
         <p>Browse community sheets, add your copied sheet links, edit custom links, and restore hidden presets.</p>
         <div class="saved-manager-list" id="savedLinksManagerList"></div>
       </div>
-    </div>
+    </dialog>
 
     <template id="toolCardTemplate">
       <article class="tool-card">

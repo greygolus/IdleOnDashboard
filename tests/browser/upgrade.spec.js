@@ -49,8 +49,9 @@ async function downloadBackup(page, button) {
   return JSON.parse(readFileSync(await download.path(), "utf8"));
 }
 
-test("a populated old dashboard upgrades without changing its raw saved data", async ({ page }) => {
-  const legacy = execFileSync("git", ["show", "27a2656:app.js"], { encoding: "utf8" });
+for (const version of ["27a2656", "71c01b7"]) {
+test(`a populated old dashboard (${version}) upgrades without changing its raw saved data`, async ({ page }) => {
+  const legacy = execFileSync("git", ["show", `${version}:app.js`], { encoding: "utf8" });
   await page.route("**/app.js", (route) => route.fulfill({ body: legacy, contentType: "text/javascript" }));
   await prepare(page);
   const before = await rawState(page);
@@ -61,6 +62,7 @@ test("a populated old dashboard upgrades without changing its raw saved data", a
   const backup = await downloadBackup(page, "Download before-update copy");
   for (const [key, value] of Object.entries(before)) expect(backup.values[key]).toBe(value);
 });
+}
 
 test("personal copies, name collisions, retired links and unknown fields survive edits", async ({ page }) => {
   await prepare(page);

@@ -314,6 +314,9 @@ const defaultSavedLinks = [
 
 const state = {
   favorites: new Set(storage.readJSON(favoriteKey, [], (value) => Array.isArray(value) && value.every((id) => typeof id === "string"))),
+  resourceView: "dashboard",
+  resourceQuery: "",
+  resourceCategory: "all",
   draggedCard: null
 };
 
@@ -1209,8 +1212,30 @@ function toolIcon(tool) {
   return tool.icon ? wikiAsset(tool.icon) : faviconUrl(tool.url);
 }
 
-function matchesTool(tool) {
-  return Boolean(tool);
+function getResourceCatalog() {
+  const hidden = new Set(getLayoutState().tools.hidden);
+  return [
+    ...tools.map((tool) => ({ ...tool, target: tool.url, favorite: state.favorites.has(tool.id), onDashboard: !hidden.has(tool.id) })),
+    ...getSavedLinks().filter((link) => !link.hiddenPreset).map((link) => ({
+      id: savedLinkCardId(link), name: link.name, category: "saved", target: savedLinkTarget(link), link,
+      description: link.note || (link.personalUrl ? "Your personal copy of this community resource." : link.preset ? "Community reference. Save your personal copy in Manage saved links." : "Your saved link."),
+      tags: [savedLinkKindLabel(link), savedLinkGroupLabel(link.group)], favorite: link.favorite,
+      onDashboard: link.showInTools && !hidden.has(savedLinkCardId(link))
+    }))
+  ];
+}
+
+function matchesResource(resource) {
+  if (state.resourceView === "dashboard" && !resource.onDashboard) return false;
+  if (state.resourceCategory === "favorites" && !resource.favorite) return false;
+  if (!["all", "favorites"].includes(state.resourceCategory) && resource.category !== state.resourceCategory) return false;
+  const text = [resource.name, resource.category, resource.description, resource.target, ...(resource.tags || [])].join(" ").toLocaleLowerCase();
+  return state.resourceQuery.trim().toLocaleLowerCase().split(/\s+/).every((word) => text.includes(word));
+}
+
+function completeCardOrder(sectionId, section = getLayoutState()[sectionId]) {
+  const known = sectionId === "tools" ? [...tools.map((tool) => tool.id), ...getSavedLinks().map(savedLinkCardId)] : getSectionCards(sectionId).map((card) => card.dataset.cardId);
+  return [...new Set([...section.order, ...known])];
 }
 
 function saveFavorites() {
@@ -1276,13 +1301,7 @@ function getSectionCards(sectionId) {
 
 function moveCard(sectionId, cardId, direction) {
   updateLayoutSection(sectionId, (section) => {
-    const cards = getSectionCards(sectionId);
-    const ids = section.order.length
-      ? section.order.filter((id) => cards.some((card) => card.dataset.cardId === id))
-      : cards.map((card) => card.dataset.cardId);
-    cards.forEach((card) => {
-      if (!ids.includes(card.dataset.cardId)) ids.push(card.dataset.cardId);
-    });
+    const ids = completeCardOrder(sectionId, section);
     const index = ids.indexOf(cardId);
     const nextIndex = Math.max(0, Math.min(ids.length - 1, index + direction));
     if (index > -1 && index !== nextIndex) {
@@ -1294,21 +1313,19 @@ function moveCard(sectionId, cardId, direction) {
 }
 
 function moveToolInControls(toolId, direction) {
-  updateLayoutSection("tools", (section) => {
-    const ids = [
-      ...(section.order || []).filter((id) => tools.some((tool) => tool.id === id)),
-      ...tools.map((tool) => tool.id).filter((id) => !(section.order || []).includes(id))
-    ];
-    const index = ids.indexOf(toolId);
-    const nextIndex = Math.max(0, Math.min(ids.length - 1, index + direction));
-    if (index > -1 && index !== nextIndex) {
-      ids.splice(index, 1);
-      ids.splice(nextIndex, 0, toolId);
+  updateLayoutSection('tools', (section) => {
+    const ids = completeCardOrder('tools', section);
+    const visibleIds = new Set(getResourceCatalog().filter((resource) => !resource.link || resource.link.inControls || resource.link.showInTools).map((resource) => resource.id));
+    const controls = ids.filter((id) => visibleIds.has(id));
+    const index = controls.indexOf(toolId);
+    const neighbor = controls[index + direction];
+    if (index >= 0 && neighbor) {
+      const from = ids.indexOf(toolId), to = ids.indexOf(neighbor);
+      [ids[from], ids[to]] = [ids[to], ids[from]];
     }
     return { ...section, order: ids };
   });
-  renderCards();
-  renderQuickList();
+  render();
 }
 
 function toggleHiddenCard(sectionId, cardId) {
@@ -1368,13 +1385,7 @@ function enableCardDrag(card, sectionId) {
     state.draggedCard = null;
     if (!dragged || dragged.sectionId !== sectionId || dragged.cardId === card.dataset.cardId) return;
     updateLayoutSection(sectionId, (section) => {
-      const cards = getSectionCards(sectionId);
-      const ids = section.order.length
-        ? section.order.filter((id) => cards.some((item) => item.dataset.cardId === id))
-        : cards.map((item) => item.dataset.cardId);
-      cards.forEach((item) => {
-        if (!ids.includes(item.dataset.cardId)) ids.push(item.dataset.cardId);
-      });
+      const ids = completeCardOrder(sectionId, section);
       const from = ids.indexOf(dragged.cardId);
       const to = ids.indexOf(card.dataset.cardId);
       if (from > -1 && to > -1) {
@@ -1416,8 +1427,8 @@ function applySectionLayout(sectionId) {
     const current = container.children[index];
     if (current !== card) container.insertBefore(card, current || null);
   });
-  const collapsed = sectionId !== "intel" && section.collapsed;
-  const hiddenIds = sectionId === "intel" ? [] : section.hidden;
+  const collapsed = sectionId !== "intel" && section.collapsed && state.resourceView === "dashboard";
+  const hiddenIds = sectionId === "intel" || state.resourceView === "library" ? [] : section.hidden;
   wrapper.classList.toggle("section-collapsed", collapsed);
   wrapper.classList.toggle("tools-compact-section", sectionId === "tools" && section.compact);
   container.hidden = collapsed;
@@ -1481,20 +1492,30 @@ function applyAllLayouts() {
 
 function renderSectionControls(sectionId) {
   const host = document.querySelector(`[data-layout-controls="${sectionId}"]`);
-  if (!host) return;
-  const section = getLayoutState()[sectionId] || getDefaultLayoutSection();
-  host.innerHTML = "";
-
-  const compact = document.createElement("button");
-  compact.type = "button";
-  compact.title = section.compact ? "Use full tool cards" : "Compact all tool cards";
-  compact.textContent = section.compact ? "Full" : "Compact";
-  compact.addEventListener("click", () => {
-    updateLayoutSection(sectionId, (current) => ({ ...current, compact: !current.compact }));
-    if (sectionId === "tools") render();
-  });
-
-  if (sectionId === "tools") host.append(compact);
+  if (!host || sectionId !== 'tools') return;
+  const section = getLayoutState().tools;
+  let compact = host.querySelector('[data-density-toggle]');
+  if (!compact) {
+    compact = document.createElement('button');
+    compact.type = 'button'; compact.dataset.densityToggle = 'true';
+    compact.addEventListener('click', () => {
+      updateLayoutSection('tools', (current) => ({ ...current, compact: !current.compact }));
+      render();
+    });
+    host.append(compact);
+  }
+  compact.title = section.compact ? 'Use full tool cards' : 'Use compact tool cards';
+  compact.textContent = section.compact ? 'Full' : 'Compact';
+  compact.setAttribute('aria-label', compact.title);
+  compact.setAttribute('aria-pressed', String(section.compact));
+  let expand = host.querySelector('[data-expand-tools]');
+  if (!expand) {
+    expand = document.createElement('button'); expand.type = 'button'; expand.dataset.expandTools = 'true';
+    expand.textContent = 'Show tools';
+    expand.addEventListener('click', () => { updateLayoutSection('tools', (current) => ({ ...current, collapsed: false })); render(); });
+    host.append(expand);
+  }
+  expand.hidden = !section.collapsed || state.resourceView === 'library';
 }
 
 function launchUrl(url, options = {}) {
@@ -1515,11 +1536,9 @@ function getFavoriteTargets() {
     .filter((tool) => state.favorites.has(tool.id))
     .map((tool) => ({ name: tool.name, url: tool.url, icon: toolIcon(tool) }));
   const favoriteSavedLinks = getSavedLinks()
-    .filter((link) => !link.hiddenPreset && link.inControls && link.favorite)
+    .filter((link) => !link.hiddenPreset && link.favorite)
     .map((link) => ({ name: link.name, url: savedLinkTarget(link), icon: "" }));
-  const targets = favoriteTools.length > 0 || favoriteSavedLinks.length > 0
-    ? [...favoriteTools, ...favoriteSavedLinks]
-    : tools.map((tool) => ({ name: tool.name, url: tool.url, icon: toolIcon(tool) }));
+  const targets = [...favoriteTools, ...favoriteSavedLinks];
   const seen = new Set();
   return targets.filter((target) => {
     if (!target.url || seen.has(target.url)) return false;
@@ -1531,6 +1550,11 @@ function getFavoriteTargets() {
 function showFavoritesModal() {
   const targets = getFavoriteTargets();
   favoritesModalList.innerHTML = "";
+  if (!targets.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No favorites yet. Star a tool or saved link to keep it here.';
+    favoritesModalList.append(empty);
+  }
   targets.forEach((target) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -1543,7 +1567,7 @@ function showFavoritesModal() {
     button.addEventListener("click", () => launchUrl(target.url, { fallback: false }));
     favoritesModalList.append(button);
   });
-  favoritesModal.hidden = false;
+  openDashboardDialog(favoritesModal);
 }
 
 async function copyText(text) {
@@ -1693,7 +1717,7 @@ function renderIconLinks(container, links) {
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
       if (link.popup === "rip") {
-        ripModal.hidden = false;
+        openDashboardDialog(ripModal);
       } else if (link.url) {
         launchUrl(link.url);
       }
@@ -2363,7 +2387,7 @@ function renderSavedLinks() {
     more.textContent = `Manage ${visibleLinks.length} resources`;
     more.addEventListener("click", () => {
       renderSavedLinksManager();
-      savedLinksModal.hidden = false;
+      openDashboardDialog(savedLinksModal);
     });
     savedLinks.append(more);
   }
@@ -2371,6 +2395,10 @@ function renderSavedLinks() {
 
 function renderSavedLinksManager() {
   if (!savedLinksManagerList) return;
+  const active = document.activeElement;
+  const focusedId = active?.closest('#savedLinksManagerList [data-saved-id]')?.dataset.savedId;
+  const focusedField = active?.dataset.managerField;
+  const selection = focusedField ? [active.selectionStart, active.selectionEnd] : [];
   const links = getSavedLinks();
   const savedPanelIds = getSavedPanelLinkIds(links);
   savedLinksManagerList.innerHTML = "";
@@ -2390,6 +2418,7 @@ function renderSavedLinksManager() {
     const visibleInSavedPanel = savedPanelIds.has(link.id);
     const sideButtonText = link.showInSavedPanel ? "Unpin Side" : visibleInSavedPanel ? "Keep Side" : "Show Side";
     row.className = "saved-manager-item";
+    row.dataset.savedId = link.id;
     row.classList.toggle("is-preset-resource", link.preset);
     row.classList.toggle("is-hidden-preset", link.hiddenPreset);
     row.innerHTML = `
@@ -2540,8 +2569,17 @@ function renderSavedLinksManager() {
       saveSavedLinks(nextLinks);
       render();
     });
+    row.querySelectorAll('input, button, a').forEach((control, index) => { control.dataset.managerField = control.className || `${control.tagName}:${index}`; });
     savedLinksManagerList.append(row);
   });
+  if (focusedId && focusedField) {
+    const row = [...savedLinksManagerList.querySelectorAll('[data-saved-id]')].find((row) => row.dataset.savedId === focusedId);
+    const control = row && [...row.querySelectorAll('[data-manager-field]')].find((control) => control.dataset.managerField === focusedField);
+    (control || document.querySelector('#closeSavedLinksModal')).focus({ preventScroll: true });
+    if (control && selection.every(Number.isInteger)) {
+      try { control.setSelectionRange(...selection); } catch { /* Color and URL fields may not support selection. */ }
+    }
+  }
 }
 
 function getProfilePayloadForCopy(payload) {
@@ -2632,176 +2670,166 @@ async function fetchProfileData(options = {}) {
   } finally { if (current()) { button.disabled = false; profileController = null; } }
 }
 
-function renderCards() {
-  grid.innerHTML = "";
-  const toolsLayout = getLayoutState().tools || getDefaultLayoutSection();
-  const hiddenTools = new Set(toolsLayout.hidden || []);
-  const visibleTools = tools.filter((tool) => matchesTool(tool) && !hiddenTools.has(tool.id));
-  const orderedToolIds = [
-    ...(toolsLayout.order || []).filter((id) => visibleTools.some((tool) => tool.id === id)),
-    ...visibleTools.map((tool) => tool.id).filter((id) => !(toolsLayout.order || []).includes(id))
-  ];
-  const orderedTools = orderedToolIds
-    .map((id) => visibleTools.find((tool) => tool.id === id))
-    .filter(Boolean);
-  const displayedTools = toolsLayout.compact ? orderedTools.slice(0, 24) : orderedTools.slice(0, 6);
-  const visibleSavedLinks = toolsLayout.compact ? getSavedLinks().filter((link) => link.showInTools && !link.hiddenPreset) : [];
-  toolCount.textContent = toolsLayout.compact || orderedTools.length <= displayedTools.length
-    ? `${orderedTools.length} tools`
-    : `${displayedTools.length} of ${orderedTools.length} tools`;
+function toggleResourceFavorite(resource) {
+  if (resource.link) {
+    saveSavedLinks(getSavedLinks().map((link) => link.id === resource.link.id ? { ...link, favorite: !link.favorite } : link));
+  } else {
+    if (state.favorites.has(resource.id)) state.favorites.delete(resource.id);
+    else state.favorites.add(resource.id);
+    saveFavorites();
+    render();
+  }
+}
 
-  if (displayedTools.length === 0 && visibleSavedLinks.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No tools match that search.";
+function setResourceVisibility(resource, visible) {
+  const layout = getLayoutState();
+  const hidden = new Set(layout.tools.hidden);
+  if (visible) hidden.delete(resource.id); else if (!resource.link) hidden.add(resource.id);
+  layout.tools = { ...layout.tools, hidden: [...hidden] };
+  if (JSON.stringify(layout.tools.hidden) !== JSON.stringify(getLayoutState().tools.hidden)) setLayoutState(layout);
+  if (resource.link) {
+    saveSavedLinks(getSavedLinks().map((link) => link.id === resource.link.id ? { ...link, showInTools: visible, inControls: true } : link));
+  }
+  render();
+}
+
+function renderCards() {
+  const active = document.activeElement;
+  const focusedId = active?.closest('#toolGrid [data-card-id]')?.dataset.cardId;
+  const focusedAction = active?.dataset.resourceAction;
+  const catalog = getResourceCatalog();
+  const byId = new Map(catalog.map((resource) => [resource.id, resource]));
+  const resources = completeCardOrder("tools").map((id) => byId.get(id)).filter((resource) => resource && matchesResource(resource));
+  const total = catalog.filter((resource) => state.resourceView === "library" || resource.onDashboard).length;
+  const filtered = state.resourceQuery.trim() || state.resourceCategory !== "all";
+  grid.replaceChildren();
+  toolCount.textContent = `${catalog.filter((resource) => resource.onDashboard).length} shown`;
+  document.querySelector('#resourceResults').textContent = `${resources.length}${filtered ? ` of ${total}` : ""} ${resources.length === 1 ? "resource" : "resources"} · ${state.resourceView === "library" ? "Browse without changing your dashboard" : "Your chosen tools and links"}`;
+  document.querySelector('#clearResourceFilters').hidden = !filtered;
+  document.querySelectorAll('[data-resource-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.resourceView === state.resourceView)));
+
+  if (!resources.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    const title = document.createElement('h3');
+    title.textContent = filtered ? 'No matching resources' : 'Your tools are ready to personalize';
+    const hint = document.createElement('p');
+    hint.textContent = filtered ? 'Try another name or topic, clear your filters, or browse All resources.' : 'Choose All resources to add tools and community links to this view.';
+    empty.append(title, hint);
     grid.append(empty);
-    return;
   }
 
-  displayedTools.forEach((tool) => {
+  resources.forEach((resource) => {
     const card = template.content.firstElementChild.cloneNode(true);
-    const favicon = card.querySelector(".favicon");
-    const category = card.querySelector(".category");
-    const title = card.querySelector("h2");
-    const description = card.querySelector(".description");
-    const tagRow = card.querySelector(".tag-row");
-    const open = card.querySelector(".primary-action");
-    const copy = card.querySelector(".copy-link");
-
-    favicon.src = toolIcon(tool);
-    favicon.alt = "";
-    favicon.title = tool.name;
-    category.textContent = tool.category;
-    title.textContent = tool.name;
-    description.textContent = tool.description;
-    open.href = tool.url;
-    open.title = `Open ${tool.name}`;
-    copy.title = `Copy ${tool.name} URL`;
-    open.addEventListener("click", (event) => {
-      event.preventDefault();
-      launchUrl(tool.url);
+    const icon = card.querySelector('.favicon');
+    const top = card.querySelector('.card-top');
+    if (resource.link) {
+      card.classList.add('saved-tool-card');
+      const badge = document.createElement('span');
+      badge.className = 'saved-tool-icon';
+      badge.style.background = safeColor(resource.link.iconColor);
+      badge.textContent = resource.link.iconText;
+      badge.setAttribute('aria-hidden', 'true');
+      icon.replaceWith(badge);
+    } else { icon.src = toolIcon(resource); icon.alt = ''; }
+    card.querySelector('.category').textContent = resource.link ? `${savedLinkKindLabel(resource.link)} · ${resource.link.personalUrl ? 'My copy' : resource.link.preset ? 'Original' : 'Saved link'}` : resource.category;
+    card.querySelector('h2').textContent = resource.name;
+    card.querySelector('.description').textContent = resource.description;
+    const favorite = document.createElement('button');
+    favorite.type = 'button'; favorite.className = 'favorite';
+    favorite.dataset.resourceAction = 'favorite';
+    favorite.classList.toggle('active', resource.favorite);
+    favorite.textContent = resource.favorite ? '★' : '☆';
+    favorite.setAttribute('aria-pressed', String(resource.favorite));
+    favorite.setAttribute('aria-label', `${resource.favorite ? 'Remove' : 'Add'} ${resource.name} ${resource.favorite ? 'from' : 'to'} favorites`);
+    favorite.title = favorite.getAttribute('aria-label');
+    favorite.addEventListener('click', () => toggleResourceFavorite(resource));
+    top.append(favorite);
+    const open = card.querySelector('.primary-action');
+    const copy = card.querySelector('.copy-link');
+    const target = safeWebUrl(resource.target);
+    open.textContent = resource.link?.personalUrl ? 'My copy' : resource.link?.preset ? 'Original' : 'Open';
+    open.setAttribute('aria-label', `${open.textContent}: ${resource.name}`);
+    open.title = `Open ${resource.name}`;
+    open.dataset.resourceAction = 'open';
+    copy.dataset.resourceAction = 'copy';
+    copy.setAttribute('aria-label', `Copy ${resource.name} URL`);
+    if (target) {
+      open.href = target;
+      open.addEventListener('click', (event) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault(); launchUrl(target);
+      });
+      copy.addEventListener('click', () => copyUrl(target, copy));
+    } else {
+      open.removeAttribute('href'); open.setAttribute('aria-disabled', 'true');
+      copy.disabled = true;
+      card.querySelector('.description').textContent = 'This saved URL needs attention. Edit it in Manage saved links.';
+    }
+    resource.tags.forEach((tag) => {
+      const chip = document.createElement('span'); chip.className = 'tag'; chip.textContent = tag;
+      card.querySelector('.tag-row').append(chip);
     });
-
-    tool.tags.forEach((tag) => {
-      const chip = document.createElement("span");
-      chip.className = "tag";
-      chip.textContent = tag;
-      chip.title = `${tool.name} tag: ${tag}`;
-      tagRow.append(chip);
-    });
-
-    copy.addEventListener("click", () => copyUrl(tool.url, copy));
-    setupCustomCard(card, "tools", tool.id);
+    const visibility = document.createElement('button');
+    visibility.type = 'button'; visibility.className = 'resource-visibility';
+    visibility.dataset.resourceAction = 'visibility';
+    visibility.textContent = resource.onDashboard ? 'Hide from My tools' : 'Add to My tools';
+    visibility.setAttribute('aria-label', `${resource.onDashboard ? 'Hide' : 'Add'} ${resource.name} ${resource.onDashboard ? 'from' : 'to'} My tools`);
+    visibility.addEventListener('click', () => setResourceVisibility(resource, !resource.onDashboard));
+    card.append(visibility);
+    setupCustomCard(card, 'tools', resource.id);
     grid.append(card);
   });
-
-  visibleSavedLinks.forEach((link) => {
-    const card = document.createElement("article");
-    card.className = "tool-card saved-tool-card";
-    card.innerHTML = `
-      <div class="card-top">
-        <button class="saved-tool-icon" type="button" title="Open ${escapeHtml(link.name)}" style="background:${safeColor(link.iconColor)}">
-          ${escapeHtml(link.iconText)}
-        </button>
-      </div>
-      <div>
-        <p class="category">${link.type === "sheet" ? "Sheet" : "Saved Link"}</p>
-        <h2>${escapeHtml(link.name)}</h2>
-        <p class="description">${link.type === "sheet" ? "Your saved copy or the original community sheet." : "Custom saved link."}</p>
-      </div>
-      <div class="tag-row"></div>
-      <div class="card-actions">
-        <a class="primary-action" target="_blank" rel="noopener noreferrer">Open</a>
-        <button class="copy-link" type="button">Copy URL</button>
-      </div>
-    `;
-    const target = savedLinkTarget(link);
-    const open = card.querySelector(".primary-action");
-    const copy = card.querySelector(".copy-link");
-    card.querySelector(".saved-tool-icon").addEventListener("click", () => launchUrl(target));
-    open.href = safeWebUrl(target);
-    open.addEventListener("click", (event) => {
-      event.preventDefault();
-      launchUrl(target);
-    });
-    copy.addEventListener("click", () => copyUrl(target, copy));
-    setupCustomCard(card, "tools", savedLinkCardId(link));
-    grid.append(card);
-  });
+  applySectionLayout('tools');
+  if (focusedId && focusedAction) {
+    const card = [...grid.querySelectorAll('[data-card-id]')].find((card) => card.dataset.cardId === focusedId);
+    (card?.querySelector(`[data-resource-action="${focusedAction}"]`) || document.querySelector('#resourceSearch')).focus({ preventScroll: true });
+  }
 }
 
 function renderQuickList() {
-  quickList.innerHTML = "";
-  const hiddenTools = new Set(getLayoutState().tools.hidden);
-
-  tools.forEach((tool) => {
-    const row = document.createElement("div");
-    row.className = "control-row";
-    row.classList.toggle("is-favorite", state.favorites.has(tool.id));
-    row.classList.toggle("is-hidden-tool", hiddenTools.has(tool.id));
-    row.innerHTML = `
-      <button class="control-star" type="button" title="${state.favorites.has(tool.id) ? "Remove" : "Add"} ${escapeHtml(tool.name)} ${state.favorites.has(tool.id) ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <a class="control-open control-tool-icon" href="${escapeHtml(tool.url)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(tool.name)}. ${escapeHtml(tool.description)}">
-        <img src="${toolIcon(tool)}" alt="">
-      </a>
-      <button class="control-move-up" type="button" title="Move ${escapeHtml(tool.name)} earlier in Tools."><span class="icon icon-arrow-up" aria-hidden="true"></span></button>
-      <button class="control-move-down" type="button" title="Move ${escapeHtml(tool.name)} later in Tools."><span class="icon icon-arrow-down" aria-hidden="true"></span></button>
-      <button class="control-hide" type="button" title="${hiddenTools.has(tool.id) ? "Show" : "Hide"} ${escapeHtml(tool.name)} in the Tools section."><span class="icon ${hiddenTools.has(tool.id) ? "icon-eye-closed" : "icon-eye-open"}" aria-hidden="true"></span></button>
-    `;
-    row.querySelector(".control-open").addEventListener("click", (event) => {
-      event.preventDefault();
-      launchUrl(tool.url);
+  const focused = document.activeElement;
+  const focusedId = focused?.closest('#quickList [data-resource-id]')?.dataset.resourceId;
+  const focusedAction = focused?.dataset.controlAction;
+  const byId = new Map(getResourceCatalog().filter((resource) => !resource.link || resource.link.inControls || resource.link.showInTools).map((resource) => [resource.id, resource]));
+  const resources = completeCardOrder('tools').map((id) => byId.get(id)).filter(Boolean);
+  quickList.replaceChildren();
+  resources.forEach((resource, index) => {
+    const row = document.createElement('div');
+    row.className = 'control-row'; row.dataset.resourceId = resource.id;
+    row.classList.toggle('is-favorite', resource.favorite);
+    row.classList.toggle('is-hidden-tool', !resource.onDashboard);
+    function button(action, label, text, callback) {
+      const button = document.createElement('button'); button.type = 'button';
+      button.dataset.controlAction = action; button.className = `control-${action}`;
+      button.setAttribute('aria-label', label); button.title = label; button.textContent = text;
+      button.addEventListener('click', callback); return button;
+    }
+    const star = button('star', `${resource.favorite ? 'Remove' : 'Add'} ${resource.name} ${resource.favorite ? 'from' : 'to'} favorites.`, resource.favorite ? '★' : '☆', () => toggleResourceFavorite(resource));
+    star.setAttribute('aria-pressed', String(resource.favorite));
+    row.append(star);
+    const link = document.createElement('a'); link.className = 'control-open'; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    const target = safeWebUrl(resource.target);
+    if (target) link.href = target; else link.setAttribute('aria-disabled', 'true');
+    link.textContent = resource.name; link.title = `Open ${resource.name}`;
+    link.addEventListener('click', (event) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      event.preventDefault(); launchUrl(target);
     });
-    row.querySelector(".control-star").addEventListener("click", () => {
-      if (state.favorites.has(tool.id)) state.favorites.delete(tool.id);
-      else state.favorites.add(tool.id);
-      saveFavorites();
-      renderQuickList();
-    });
-    row.querySelector(".control-move-up").addEventListener("click", () => moveToolInControls(tool.id, -1));
-    row.querySelector(".control-move-down").addEventListener("click", () => moveToolInControls(tool.id, 1));
-    row.querySelector(".control-hide").addEventListener("click", () => {
-      toggleHiddenCard("tools", tool.id);
-      renderCards();
-      renderQuickList();
-    });
+    row.append(link);
+    const up = button('move-up', `Move ${resource.name} earlier in Tools.`, '↑', () => moveToolInControls(resource.id, -1));
+    const down = button('move-down', `Move ${resource.name} later in Tools.`, '↓', () => moveToolInControls(resource.id, 1));
+    up.disabled = index === 0; down.disabled = index === resources.length - 1;
+    const visibility = button('hide', `${resource.onDashboard ? 'Hide' : 'Show'} ${resource.name} in My tools.`, resource.onDashboard ? 'Hide' : 'Show', () => setResourceVisibility(resource, !resource.onDashboard));
+    visibility.setAttribute('aria-pressed', String(resource.onDashboard));
+    row.append(up, down, visibility);
     quickList.append(row);
   });
-
-  getSavedLinks().forEach((link, index) => {
-    if (link.hiddenPreset || !link.inControls) return;
-    const row = document.createElement("div");
-    row.className = "control-row control-row-saved";
-    row.classList.toggle("is-favorite", link.favorite);
-    row.classList.toggle("is-hidden-tool", !link.showInTools);
-    row.innerHTML = `
-      <button class="control-star" type="button" title="${link.favorite ? "Remove" : "Add"} ${escapeHtml(link.name)} ${link.favorite ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <a class="control-open" href="${escapeHtml(safeWebUrl(savedLinkTarget(link)))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">
-        <span>${escapeHtml(link.name)}</span>
-      </a>
-      <button class="control-hide" type="button" title="${link.showInTools ? "Hide" : "Show"} ${escapeHtml(link.name)} in compact Tools."><span class="icon ${link.showInTools ? "icon-eye-open" : "icon-eye-closed"}" aria-hidden="true"></span></button>
-    `;
-    row.querySelector(".control-open").addEventListener("click", (event) => {
-      event.preventDefault();
-      launchUrl(savedLinkTarget(link));
-    });
-    row.querySelector(".control-star").addEventListener("click", () => {
-      const nextLinks = getSavedLinks();
-      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
-      if (nextIndex < 0) return;
-      nextLinks[nextIndex] = { ...nextLinks[nextIndex], favorite: !nextLinks[nextIndex].favorite };
-      saveSavedLinks(nextLinks);
-    });
-    row.querySelector(".control-hide").addEventListener("click", () => {
-      const nextLinks = getSavedLinks();
-      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
-      if (nextIndex < 0) return;
-      nextLinks[nextIndex] = { ...nextLinks[nextIndex], showInTools: !nextLinks[nextIndex].showInTools, inControls: true };
-      saveSavedLinks(nextLinks);
-      render();
-    });
-    quickList.append(row);
-  });
+  if (focusedId && focusedAction) {
+    const row = [...quickList.children].find((row) => row.dataset.resourceId === focusedId);
+    const target = row?.querySelector(`[data-control-action="${focusedAction}"]`);
+    (target && !target.disabled ? target : row?.querySelector('.control-open'))?.focus({ preventScroll: true });
+  }
 }
 
 function render() {
@@ -2811,12 +2839,42 @@ function render() {
   applySidebarLayout();
 }
 
+function openDashboardDialog(dialog) {
+  if (dialog.open) return;
+  dialog.returnFocusTo = document.activeElement;
+  dialog.showModal();
+}
+[ripModal, favoritesModal, onboardingModal, savedLinksModal].forEach((dialog) => {
+  dialog.addEventListener('close', () => {
+    const opener = dialog.returnFocusTo;
+    const fallback = document.querySelector(dialog === savedLinksModal ? '#browseSavedResources' : dialog === favoritesModal ? '#openFavorites' : '#openHelp');
+    (opener?.isConnected && opener.getClientRects().length ? opener : fallback)?.focus({ preventScroll: true });
+  });
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab') return;
+    const controls = [...dialog.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])')].filter((control) => control.getClientRects().length);
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
+});
+
+document.querySelector('#resourceSearch').addEventListener('input', (event) => { state.resourceQuery = event.target.value; renderCards(); });
+document.querySelector('#resourceCategory').addEventListener('change', (event) => { state.resourceCategory = event.target.value; renderCards(); });
+document.querySelectorAll('[data-resource-view]').forEach((button) => button.addEventListener('click', () => { state.resourceView = button.dataset.resourceView; renderCards(); }));
+document.querySelector('#clearResourceFilters').addEventListener('click', () => {
+  state.resourceQuery = ''; state.resourceCategory = 'all';
+  document.querySelector('#resourceSearch').value = ''; document.querySelector('#resourceCategory').value = 'all';
+  renderCards(); document.querySelector('#resourceSearch').focus();
+});
+document.querySelector('#browseSavedResources').addEventListener('click', () => { renderSavedLinksManager(); openDashboardDialog(savedLinksModal); });
+
 document.querySelector("#openFavorites").addEventListener("click", () => {
   showFavoritesModal();
 });
 
 document.querySelector("#openHelp")?.addEventListener("click", () => {
-  if (onboardingModal) onboardingModal.hidden = false;
+  if (onboardingModal) openDashboardDialog(onboardingModal);
 });
 
 document.querySelector("#scrollBottom").addEventListener("click", () => {
@@ -2826,29 +2884,32 @@ document.querySelector("#scrollBottom").addEventListener("click", () => {
 document.querySelectorAll("[data-mobile-jump]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = document.querySelector(button.dataset.mobileJump);
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (target) {
+      target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      target.tabIndex = -1; target.focus({ preventScroll: true });
+    }
   });
 });
 
 document.querySelector("#closeRipModal").addEventListener("click", () => {
-  ripModal.hidden = true;
+  ripModal.close();
 });
 
 ripModal.addEventListener("click", (event) => {
-  if (event.target === ripModal) ripModal.hidden = true;
+  if (event.target === ripModal) ripModal.close();
 });
 
 document.querySelector("#closeFavoritesModal").addEventListener("click", () => {
-  favoritesModal.hidden = true;
+  favoritesModal.close();
 });
 
 favoritesModal.addEventListener("click", (event) => {
-  if (event.target === favoritesModal) favoritesModal.hidden = true;
+  if (event.target === favoritesModal) favoritesModal.close();
 });
 
 function closeOnboarding(savePreference = false) {
   if (!onboardingModal) return;
-  onboardingModal.hidden = true;
+  onboardingModal.close();
   if (savePreference || dontShowOnboarding?.checked) {
     storage.setItem(onboardingSeenKey, "true");
   }
@@ -2856,7 +2917,7 @@ function closeOnboarding(savePreference = false) {
 
 function maybeShowOnboarding() {
   if (!onboardingModal || storage.getItem(onboardingSeenKey) === "true") return;
-  onboardingModal.hidden = false;
+  openDashboardDialog(onboardingModal);
 }
 
 document.querySelector("#closeOnboardingModal")?.addEventListener("click", () => {
@@ -2873,15 +2934,15 @@ onboardingModal?.addEventListener("click", (event) => {
 
 document.querySelector("#manageSavedLinks").addEventListener("click", () => {
   renderSavedLinksManager();
-  savedLinksModal.hidden = false;
+  openDashboardDialog(savedLinksModal);
 });
 
 document.querySelector("#closeSavedLinksModal").addEventListener("click", () => {
-  savedLinksModal.hidden = true;
+  savedLinksModal.close();
 });
 
 savedLinksModal.addEventListener("click", (event) => {
-  if (event.target === savedLinksModal) savedLinksModal.hidden = true;
+  if (event.target === savedLinksModal) savedLinksModal.close();
 });
 
 rateValue.addEventListener("input", renderRateCalculator);

@@ -13,6 +13,15 @@ Live site: https://idleondashboard.com/
 - Stores community sheets and personal links locally in your browser.
 - Includes a checklist/goals area, notes, favorites, and a rate calculator.
 
+## Finding and arranging resources
+
+- My tools shows every chosen tool and saved resource in both Full and Compact mode, in the same saved order.
+- All resources browses the library, including tools hidden from the dashboard. Presets explicitly hidden in Manage saved links remain in that manager for restoration.
+- Search names, topics, notes, and destination URLs, or filter by category and favorites. Searches and filters last only in the current tab and never rewrite saved choices.
+- Star resources directly on their cards. My copy opens the personal sheet URL; Original opens its community source. Tool settings provides named ordering and visibility controls.
+- Explicitly showing a resource reconciles its legacy hidden flag without clearing other preferences. Reordering retains unknown and hidden entries in the stored layout.
+- Help, favorites, and saved-link dialogs support keyboard focus, Escape, and return to their opener. Narrow layouts use readable cards and a dock for tools, intel, data, notes, and tasks.
+
 ## Important Data Notes
 
 - This is not live game data.
