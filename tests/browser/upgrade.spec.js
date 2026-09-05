@@ -194,3 +194,41 @@ test("recovery UI works at phone width with keyboard dismissal", async ({ page }
   await expect(page.locator("#backupDialog")).not.toBeVisible();
   await expect(page.getByRole("button", { name: "Backups", exact: true })).toBeFocused();
 });
+
+test("real browser tabs serialize restores and wait before startup recovery", async ({ page, context }) => {
+  await prepare(page);
+  const second = await context.newPage();
+  await second.goto("/");
+  await expect(second.locator("#toolGrid .tool-card").first()).toBeVisible();
+  await second.evaluate(async () => {
+    window.testStorage = DashboardStorage.create();
+    await window.testStorage.initialize();
+  });
+  await page.evaluate(async () => {
+    const backend = DashboardStorage.indexedDBBackup(indexedDB);
+    const put = backend.put.bind(backend);
+    backend.put = async (...args) => {
+      if (args[0] === "before-restore") {
+        window.restorePaused = true;
+        await new Promise((resolve) => { window.resumeRestore = resolve; });
+      }
+      return put(...args);
+    };
+    const storage = DashboardStorage.create({ backup: backend });
+    await storage.initialize();
+    window.restoreResult = storage.restore({ format: "idleon-dashboard-backup", version: 1, values: { "idleon-dashboard-notes": "Coordinated restore" } });
+  });
+  await expect.poll(() => page.evaluate(() => window.restorePaused)).toBe(true);
+  const secondResult = await second.evaluate(async () => {
+    try { await window.testStorage.restore({ format: "idleon-dashboard-backup", version: 1, values: { "idleon-dashboard-notes": "Second restore" } }); }
+    catch (error) { return error.message; }
+  });
+  expect(secondResult).toContain("Another backup operation");
+  const third = await context.newPage();
+  await third.goto("/");
+  await expect.poll(() => third.evaluate(async () => (await navigator.locks.query()).pending.length)).toBeGreaterThan(0);
+  await page.evaluate(async () => { window.resumeRestore(); await window.restoreResult; });
+  await expect(third.locator("#notes")).toHaveValue("Coordinated restore");
+  await expect(third.locator("#toolGrid .tool-card").first()).toBeVisible();
+  await second.close(); await third.close();
+});

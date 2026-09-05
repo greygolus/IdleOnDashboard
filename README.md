@@ -28,6 +28,7 @@ Live site: https://idleondashboard.com/
 - If a backup or normal save cannot be made, existing data is kept and a visible warning explains which edits only last in the current tab. The Backups menu can download those edits.
 - Backups → Download current backup exports links, notes, tasks, settings, and optionally profile JSON. Recovery copies contain all data. Backups stay on the device or in the downloaded file; they are not uploaded.
 - Restoring a file first saves a before-restore copy and an operation journal. Failed writes roll back, and unfinished restores are recovered before the next startup permits writes. Omitted sections are kept; explicit null values restore absence. Close other dashboard tabs before restoring.
+- Browser Web Locks coordinate restores and startup recovery across tabs. Browsers without this capability can keep using and downloading their data, but must be updated before restoring a backup. Edits made during a restore remain in their tab for export, and rollback preserves newer saved values from older tabs.
 - Damaged records are retained for recovery. They are not silently replaced by empty defaults when another setting is edited.
 - Automatic copies share the device's browser-data lifecycle. A downloaded file is the independent backup if browser data is cleared.
 

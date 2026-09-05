@@ -79,6 +79,8 @@
     const getStorage = options.storage || (() => globalThis.localStorage);
     const getSession = options.session || (() => globalThis.sessionStorage);
     const backend = options.backup || indexedDBBackup(globalThis.indexedDB);
+    const locks = options.locks || globalThis.navigator?.locks;
+    const lockName = `${PREFIX}recovery-operation`;
     const changes = new Map();
     const problems = new Map();
     const protectedKeys = new Set();
@@ -130,12 +132,16 @@
       return { format: FORMAT, version: 1, createdAt: new Date().toISOString(), values, sessionValues };
     }
     async function initialize() {
+      return locks ? locks.request(lockName, { mode: "exclusive" }, initializeLocked) : initializeLocked();
+    }
+    async function initializeLocked() {
       let recovering = false;
       async function recoverPending(engine) {
         const pending = await engine.get("pending-restore");
         if (!pending) return;
         recovering = true;
         recoveryBackend = engine;
+        if (!locks) throw new Error("Safe recovery needs browser coordination.");
         const disk = getStorage();
         const before = validateBackup(pending.before);
         const desired = validateBackup(pending.desired);
@@ -191,7 +197,8 @@
       // Do not replace unreadable data or another tab's edits with a fallback view.
       const diskValue = diskRead(key);
       const expected = baseline.has(key) ? baseline.get(key) : null;
-      if (ready && !protectedKeys.has(key) && diskValue === expected) {
+      const restoring = diskRead(RESTORE_MARKER) !== null;
+      if (ready && !restoring && !protectedKeys.has(key) && diskValue === expected) {
         try {
           const disk = getStorage();
           if (next === null) disk.removeItem(key); else disk.setItem(key, next);
@@ -201,6 +208,8 @@
           emit();
           return true;
         } catch { issue(`write:${key}`, "Some changes could not be saved. Download a backup before closing this tab; your previous saved data is intact."); }
+      } else if (restoring) {
+        issue(`write:${key}`, "A backup restore is in progress. This tab's edits stay in this tab; download them before reloading.");
       } else if (diskValue !== expected) {
         issue(`write:${key}`, "Another tab changed saved data. This tab's edits have not replaced it. Download this tab's backup, then reload to use the latest saved data.");
       }
@@ -238,9 +247,17 @@
       return original || activeBackend.get("before-safety-v1");
     }
     async function restore(input) {
+      if (!locks) throw new Error("This browser cannot coordinate a safe restore. Update your browser before restoring; backup downloads are still available.");
+      return locks.request(lockName, { mode: "exclusive", ifAvailable: true }, (lock) => {
+        if (!lock) throw new Error("Another backup operation is in progress. Wait for it to finish before restoring.");
+        return restoreLocked(input);
+      });
+    }
+    async function restoreLocked(input) {
       const backup = validateBackup(input);
       if (!ready) throw new Error("Restore is unavailable until this browser can save a recovery backup.");
       if (changes.size) throw new Error("Download your unsaved changes and reload before restoring a backup.");
+      if (diskRead(RESTORE_MARKER) !== null) throw new Error("Another restore is in progress. Close other dashboard tabs and reload before restoring.");
       const before = capture(true, false);
       // Restores are all-or-nothing within this tab. Omitted keys are never erased.
       for (const key of Object.keys(backup.values)) {
@@ -272,8 +289,13 @@
       } catch {
         let rolledBack = true;
         try {
-          keys.forEach((key) => disk.removeItem(key));
-          keys.forEach((key) => { if (before.values[key] != null) disk.setItem(key, before.values[key]); });
+          // An older tab may not know about the restore marker. Keep its newer edits.
+          const rollbackKeys = keys.filter((key) => {
+            const current = disk.getItem(key);
+            return current === null || current === backup.values[key] || current === before.values[key];
+          });
+          rollbackKeys.forEach((key) => disk.removeItem(key));
+          rollbackKeys.forEach((key) => { if (before.values[key] != null) disk.setItem(key, before.values[key]); });
           await activeBackend.put("pending-restore", null, false);
           disk.removeItem(RESTORE_MARKER);
         } catch { rolledBack = false; }

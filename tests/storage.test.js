@@ -2,6 +2,19 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { create, validateBackup } = require("../storage");
 const P = "idleon-dashboard-";
+class MemoryLocks {
+  constructor() { this.tail = Promise.resolve(); this.pending = 0; }
+  async request(name, options, callback) {
+    if (options.ifAvailable && this.pending) return callback(null);
+    this.pending += 1;
+    const previous = this.tail;
+    let release;
+    this.tail = new Promise((resolve) => { release = resolve; });
+    await previous;
+    try { return await callback({ name }); }
+    finally { this.pending -= 1; release(); }
+  }
+}
 class MemoryStorage {
   constructor(values = {}) { this.values = new Map(Object.entries(values)); this.fail = () => false; }
   get length() { return this.values.size; }
@@ -21,8 +34,8 @@ class MemoryBackup {
 }
 const envelope = (values) => ({ format: "idleon-dashboard-backup", version: 1, values });
 const make = (values = {}) => {
-  const disk = new MemoryStorage(values), backup = new MemoryBackup();
-  return { disk, backup, storage: create({ storage: () => disk, backup }) };
+  const disk = new MemoryStorage(values), backup = new MemoryBackup(), locks = new MemoryLocks();
+  return { disk, backup, locks, storage: create({ storage: () => disk, backup, locks }) };
 };
 
 test("upgrade snapshots exact legacy strings, absence and unknown future settings before writes", async () => {
@@ -103,9 +116,9 @@ test("another tab cannot be overwritten during the awaited backup operation", as
 });
 
 test("interrupted restore is recovered before the next startup can edit data", async () => {
-  const { disk, backup } = make({ [P + "notes"]: "half restored" });
+  const { disk, backup, locks } = make({ [P + "notes"]: "half restored" });
   backup.values.set("pending-restore", { before: envelope({ [P + "notes"]: "original" }), desired: envelope({ [P + "notes"]: "half restored" }) });
-  const storage = create({ storage: () => disk, backup });
+  const storage = create({ storage: () => disk, backup, locks });
   await storage.initialize();
   assert.equal(disk.getItem(P + "notes"), "original");
   assert.equal(backup.values.get("pending-restore"), null);
@@ -148,4 +161,84 @@ test("failed journal reconciliation cannot fall back to writable partial data", 
   assert.equal(storage.status().ready, false);
   storage.setItem(P + "notes", "new");
   assert.equal(disk.getItem(P + "notes"), "partial");
+});
+
+test("another tab keeps edits in memory while restore cleanup is pending", async () => {
+  const { disk, backup, storage } = make({ [P + "notes"]: "original" });
+  const second = create({ storage: () => disk, backup });
+  await storage.initialize(); await second.initialize();
+  let firstCleanup = true;
+  backup.onPut = (key, value) => {
+    if (key === "pending-restore" && value === null && firstCleanup) {
+      firstCleanup = false;
+      assert.equal(second.setItem(P + "notes", "new note"), false);
+      throw new Error("Cleanup failed");
+    }
+  };
+  await assert.rejects(storage.restore(envelope({ [P + "notes"]: "original" })));
+  assert.equal(disk.getItem(P + "notes"), "original");
+  assert.equal(second.exportBackup().values[P + "notes"], "new note");
+  assert.equal(second.status().unsaved, 1);
+});
+
+test("failed cleanup preserves newer edits from a legacy tab during rollback", async () => {
+  const { disk, backup, storage } = make({ [P + "notes"]: "original", [P + "favorites"]: '["old"]' });
+  await storage.initialize();
+  let firstCleanup = true;
+  backup.onPut = (key, value) => {
+    if (key === "pending-restore" && value === null && firstCleanup) {
+      firstCleanup = false;
+      disk.setItem(P + "notes", "new legacy-tab note");
+      throw new Error("Cleanup failed");
+    }
+  };
+  await assert.rejects(storage.restore(envelope({ [P + "notes"]: "imported", [P + "favorites"]: '["imported"]' })));
+  assert.equal(disk.getItem(P + "notes"), "new legacy-tab note");
+  assert.equal(disk.getItem(P + "favorites"), '["old"]');
+  assert.equal((await storage.getRecovery()).values[P + "notes"], "original");
+});
+
+test("an active restore prevents a second restore from replacing its journal", async () => {
+  const { disk, backup, storage } = make({ [P + "notes"]: "original" });
+  await storage.initialize();
+  disk.setItem(P + "recovery-active-restore", "pending");
+  await assert.rejects(storage.restore(envelope({ [P + "notes"]: "imported" })), /Another restore/);
+  assert.equal(disk.getItem(P + "notes"), "original");
+  assert.equal(backup.values.get("pending-restore"), undefined);
+});
+
+test("restore preparation excludes a second restore and waits before startup recovery", async () => {
+  const { disk, backup, storage, locks } = make({ [P + "notes"]: "original" });
+  const second = create({ storage: () => disk, backup, locks });
+  await storage.initialize(); await second.initialize();
+  let resume, entered;
+  const paused = new Promise((resolve) => { entered = resolve; });
+  backup.onPut = async (key) => {
+    if (key === "before-restore") {
+      entered();
+      await new Promise((resolve) => { resume = resolve; });
+    }
+  };
+  const restoring = storage.restore(envelope({ [P + "notes"]: "imported" }));
+  await paused;
+  await assert.rejects(second.restore(envelope({ [P + "notes"]: "second import" })), /Another backup operation/);
+  let initialized = false;
+  const third = create({ storage: () => disk, backup, locks });
+  const initialization = third.initialize().then(() => { initialized = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(initialized, false);
+  assert.equal(disk.getItem(P + "notes"), "original");
+  resume();
+  await restoring; await initialization;
+  assert.equal(disk.getItem(P + "notes"), "imported");
+  assert.equal(third.status().ready, true);
+  assert.equal(backup.values.get("pending-restore"), null);
+});
+
+test("browsers without coordination can export but cannot start a restore", async () => {
+  const disk = new MemoryStorage({ [P + "notes"]: "original" });
+  const storage = create({ storage: () => disk, backup: new MemoryBackup() });
+  await storage.initialize();
+  await assert.rejects(storage.restore(envelope({ [P + "notes"]: "imported" })), /cannot coordinate/);
+  assert.equal(storage.exportBackup().values[P + "notes"], "original");
 });
