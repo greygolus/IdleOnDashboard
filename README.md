@@ -21,6 +21,29 @@ Live site: https://idleondashboard.com/
 - Manual JSON is stored locally in your browser and can be selected as the Current Intel source.
 - Saved links, notes, checklist items, layout settings, and favorites are local browser storage.
 
+## Backups and upgrades
+
+- The data-safety update keeps the existing storage keys and saved-data formats. Normal startup does not migrate or clear saved links, notes, favorites, or layouts.
+- Before application writes start, the browser saves an exact recovery copy of the original dashboard data, including readable legacy session profile data. IndexedDB stores this copy separately from localStorage; a localStorage fallback is available.
+- If a backup or normal save cannot be made, existing data is kept and a visible warning explains which edits only last in the current tab. The Backups menu can download those edits.
+- Backups → Download current backup exports links, notes, tasks, settings, and optionally profile JSON. Recovery copies contain all data. Backups stay on the device or in the downloaded file; they are not uploaded.
+- Restoring a file first saves a before-restore copy and an operation journal. Failed writes roll back, and unfinished restores are recovered before the next startup permits writes. Omitted sections are kept; explicit null values restore absence. Close other dashboard tabs before restoring.
+- Damaged records are retained for recovery. They are not silently replaced by empty defaults when another setting is edited.
+- Automatic copies share the device's browser-data lifecycle. A downloaded file is the independent backup if browser data is cleared.
+
+## Validation
+
+```bash
+npm ci
+npm test
+npx playwright install chromium
+npm run test:browser
+```
+
+The tests cover old-to-new upgrades, personal sheet copies, duplicate names, malformed records, storage quotas, request races, backup round trips, interrupted restores, rollover without the wiki, and the recovery UI on phone-sized screens. Browser tests use synthetic data and mocked external responses.
+
+Production must remain on `https://idleondashboard.com/` to retain access to existing browser data. Preview deployments use a separate origin and cannot see visitors' production data. Source rollback uses the prior deployment; the unchanged legacy keys remain readable by the older application. Keep the recovery files/scripts with the tested release when packaging for Vercel.
+
 ## Local Development
 
 Requires Node.js 18 or newer.

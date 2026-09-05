@@ -1,3 +1,26 @@
+async function initializeDashboard() {
+const storage = DashboardStorage.create();
+await storage.initialize();
+setupDataSafety(storage);
+const isRecord = DashboardStorage.isRecord;
+let profileRequestId = 0;
+let profileController = null;
+let lastIntelMinute = Math.floor(Date.now() / 60000);
+function safeWebUrl(value) { try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) ? url.href : ""; } catch { return ""; } }
+function requireWebUrl(value) { const url = safeWebUrl(value); if (!url) throw new Error("Enter an http or https URL."); return url; }
+function safeColor(value) { return /^#[0-9a-f]{6}$/i.test(value) ? value : "#36506a"; }
+function legacyId(kind, value, index) {
+  const raw = JSON.stringify(value); let hash = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) hash = Math.imul(hash ^ raw.charCodeAt(i), 16777619);
+  return `legacy-${kind}-${(hash >>> 0).toString(16)}-${index}`;
+}
+function readRecords(key) {
+  const records = storage.readJSON(key, [], Array.isArray);
+  const valid = records.filter((value) => isRecord(value) && ["id", "name", "url", "personalUrl", "text", "type", "iconText", "iconColor", "group", "note"].every((field) => value[field] == null || typeof value[field] === "string") && ["preset", "hiddenPreset", "favorite", "showInTools", "showInSavedPanel", "inControls", "done"].every((field) => value[field] == null || typeof value[field] === "boolean"));
+  const ids = valid.map((record) => record.id).filter(Boolean);
+  if (valid.length !== records.length || new Set(ids).size !== ids.length) storage.protect(key);
+  return valid;
+}
 const tools = [
   {
     id: "idleon-toolbox",
@@ -290,7 +313,7 @@ const defaultSavedLinks = [
 ];
 
 const state = {
-  favorites: new Set(JSON.parse(localStorage.getItem(favoriteKey) || "[]")),
+  favorites: new Set(storage.readJSON(favoriteKey, [], (value) => Array.isArray(value) && value.every((id) => typeof id === "string"))),
   draggedCard: null
 };
 
@@ -484,34 +507,20 @@ function targetFromSeconds(seconds, baseTime = Date.now(), cycleSeconds = 0) {
   return new Date(target).toISOString();
 }
 
-function getProfileDataForIntel() {
-  const manual = getManualProfileData();
-  const saved = getSavedPayload();
-  if (localStorage.getItem(intelSourceKey) === "manual" && manual) return manual;
-  if (saved?.data || saved?.serverVars) return saved;
-  if (manual) return manual;
-  return null;
+function resolveIntelSource() {
+  return DashboardProfile.resolve(storage.getItem(intelSourceKey), getSavedPayload(), getManualJson());
 }
+function getProfileDataForIntel() { return resolveIntelSource().payload; }
 
-function getManualProfileData() {
-  const manual = getManualJson();
-  if (!manual) return null;
-
-  try {
-    const parsed = JSON.parse(manual);
-    return parsed?.data || parsed?.serverVars ? parsed : null;
-  } catch {
-    return null;
-  }
-}
+function getManualProfileData() { return DashboardProfile.parse(getManualJson()); }
 
 function setIntelSource(source) {
-  localStorage.setItem(intelSourceKey, source);
+  storage.setItem(intelSourceKey, source);
   setManualJsonStatus();
 }
 
 function getIntelSourceLabel() {
-  return localStorage.getItem(intelSourceKey) === "manual" ? "Manual JSON" : "Toolbox";
+  return { manual: "Manual JSON", toolbox: "Toolbox", none: "No profile" }[resolveIntelSource().source];
 }
 
 function readTimeAway(profile) {
@@ -833,7 +842,7 @@ function syncLocalWeeklyRotations() {
   const resetDate = formatWikiWeekDate(week + 1);
   const profile = getProfileDataForIntel();
   const timeAway = readTimeAway(profile);
-  const profileBaseTime = Number(profile?.lastUpdated) || Date.now();
+  const profileBaseTime = normalizeTimestamp(profile?.lastUpdated) || Date.now();
   const serverVars = profile?.serverVars || profile?.data?.serverVars || {};
   const quickCard = publicRotations.find((rotation) => rotation.id === "quick-events");
   const weeklyCard = publicRotations.find((rotation) => rotation.id === "weekly-battle");
@@ -1205,7 +1214,7 @@ function matchesTool(tool) {
 }
 
 function saveFavorites() {
-  localStorage.setItem(favoriteKey, JSON.stringify([...state.favorites]));
+  storage.setItem(favoriteKey, JSON.stringify([...state.favorites]));
 }
 
 function getDefaultLayoutSection() {
@@ -1225,30 +1234,25 @@ function getDefaultSidebarLayout() {
 }
 
 function getLayoutState() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(layoutKey) || "{}");
-    const toolIds = new Set(tools.map((tool) => tool.id));
-    const toolsLayout = { ...getDefaultLayoutSection(), ...(parsed.tools || {}) };
-    toolsLayout.hidden = (toolsLayout.hidden || []).filter((id) => toolIds.has(id));
-    toolsLayout.order = (toolsLayout.order || []).filter((id) => toolIds.has(id));
-    if (toolsLayout.hidden.length >= tools.length) toolsLayout.hidden = [];
-
-    return {
-      tools: toolsLayout,
-      intel: { ...getDefaultLayoutSection(), ...(parsed.intel || {}) },
-      sidebar: { ...getDefaultSidebarLayout(), ...(parsed.sidebar || {}) }
-    };
-  } catch {
-    return {
-      tools: getDefaultLayoutSection(),
-      intel: getDefaultLayoutSection(),
-      sidebar: getDefaultSidebarLayout()
-    };
+  const parsed = storage.readJSON(layoutKey, {}, isRecord);
+  for (const key of ["tools", "intel", "sidebar"]) {
+    const value = parsed[key];
+    if (value !== undefined && (!isRecord(value) || ["hidden", "order"].some((field) => value[field] !== undefined && (!Array.isArray(value[field]) || !value[field].every((id) => typeof id === "string"))) || (value.sizes !== undefined && !isRecord(value.sizes)))) storage.protect(layoutKey);
   }
+  const section = (value) => {
+    const raw = isRecord(value) ? value : {};
+    return { ...getDefaultLayoutSection(), ...raw,
+      hidden: Array.isArray(raw.hidden) ? raw.hidden.filter((id) => typeof id === "string") : [],
+      order: Array.isArray(raw.order) ? raw.order.filter((id) => typeof id === "string") : [],
+      sizes: isRecord(raw.sizes) ? raw.sizes : {} };
+  };
+  return { ...parsed, tools: section(parsed.tools), intel: section(parsed.intel),
+    sidebar: { ...getDefaultSidebarLayout(), ...(isRecord(parsed.sidebar) ? parsed.sidebar : {}),
+      order: Array.isArray(parsed.sidebar?.order) ? parsed.sidebar.order : [...sidebarOrderDefaults] } };
 }
 
 function setLayoutState(layout) {
-  localStorage.setItem(layoutKey, JSON.stringify(layout));
+  storage.setItem(layoutKey, JSON.stringify(layout));
 }
 
 function updateLayoutSection(sectionId, updater) {
@@ -1407,7 +1411,11 @@ function applySectionLayout(sectionId) {
     ...cards.map((card) => card.dataset.cardId).filter((id) => !orderSource.includes(id))
   ];
 
-  orderedIds.forEach((id) => container.append(byId.get(id)));
+  orderedIds.forEach((id, index) => {
+    const card = byId.get(id);
+    const current = container.children[index];
+    if (current !== card) container.insertBefore(card, current || null);
+  });
   const collapsed = sectionId !== "intel" && section.collapsed;
   const hiddenIds = sectionId === "intel" ? [] : section.hidden;
   wrapper.classList.toggle("section-collapsed", collapsed);
@@ -1490,6 +1498,8 @@ function renderSectionControls(sectionId) {
 }
 
 function launchUrl(url, options = {}) {
+  url = safeWebUrl(url);
+  if (!url) return;
   const fallback = options.fallback !== false;
   const newWindow = window.open(url, "_blank");
   if (newWindow) {
@@ -1505,7 +1515,7 @@ function getFavoriteTargets() {
     .filter((tool) => state.favorites.has(tool.id))
     .map((tool) => ({ name: tool.name, url: tool.url, icon: toolIcon(tool) }));
   const favoriteSavedLinks = getSavedLinks()
-    .filter((link) => link.inControls && link.favorite)
+    .filter((link) => !link.hiddenPreset && link.inControls && link.favorite)
     .map((link) => ({ name: link.name, url: savedLinkTarget(link), icon: "" }));
   const targets = favoriteTools.length > 0 || favoriteSavedLinks.length > 0
     ? [...favoriteTools, ...favoriteSavedLinks]
@@ -1527,7 +1537,7 @@ function showFavoritesModal() {
     if (!target.icon) button.classList.add("no-icon");
     button.innerHTML = `
       ${target.icon ? `<img src="${target.icon}" alt="">` : ""}
-      <span>${target.name}</span>
+      <span>${escapeHtml(target.name)}</span>
       <strong class="icon icon-external" aria-hidden="true"></strong>
     `;
     button.addEventListener("click", () => launchUrl(target.url, { fallback: false }));
@@ -1587,24 +1597,9 @@ function setStatus(status, detail) {
   if (detail) syncMeta.textContent = detail;
 }
 
-function normalizeTimestamp(timestamp) {
-  if (!timestamp) return null;
-  if (typeof timestamp === "number" && timestamp < 1000000000000) return timestamp * 1000;
-  const parsed = Number(timestamp);
-  if (Number.isFinite(parsed)) return parsed < 1000000000000 ? parsed * 1000 : parsed;
-  const date = new Date(timestamp).getTime();
-  return Number.isNaN(date) ? null : date;
-}
+function normalizeTimestamp(timestamp) { return DashboardProfile.timestamp(timestamp); }
 
-function formatTime(timestamp) {
-  const normalized = normalizeTimestamp(timestamp);
-  if (!normalized) return "Never";
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(new Date(normalized));
-}
+function formatTime(timestamp) { return DashboardProfile.describe(timestamp); }
 
 function formatDuration(totalSeconds) {
   if (!Number.isFinite(totalSeconds)) return "Unknown";
@@ -1694,7 +1689,7 @@ function renderIconLinks(container, links) {
     }
     if (link.popup) anchor.type = "button";
     anchor.title = link.name;
-    anchor.innerHTML = link.blank ? `<span class="sr-only">${link.name}</span>` : `<img src="${wikiAsset(link.icon)}" alt="${link.name}">`;
+    anchor.innerHTML = link.blank ? `<span class="sr-only">${escapeHtml(link.name)}</span>` : `<img src="${wikiAsset(link.icon)}" alt="${escapeHtml(link.name)}">`;
     anchor.addEventListener("click", (event) => {
       event.preventDefault();
       if (link.popup === "rip") {
@@ -1723,6 +1718,9 @@ function renderItemList(items = []) {
 
 function renderPublicRotations() {
   syncLocalWeeklyRotations();
+  const sourceLabel = document.querySelector("#intelSourceStatus");
+  const resolved = resolveIntelSource();
+  if (sourceLabel) sourceLabel.textContent = resolved.payload ? `Public schedules • ${getIntelSourceLabel()}${resolved.payload.username ? ` (${resolved.payload.username})` : ""} • ${formatTime(resolved.payload.lastUpdated)}` : "Public schedules • No profile loaded";
   rotationGrid.querySelectorAll(".rotation-card").forEach((card) => card.remove());
   publicRotations.filter((rotation) => !rotation.hiddenFromIntel).forEach((rotation) => {
     const activeTarget = rotation.nextDate ? getWeeklyTarget(rotation.nextDate) : rotation.target;
@@ -1786,6 +1784,8 @@ function renderPublicRotations() {
 }
 
 function updatePublicRotationTimers() {
+  const minute = Math.floor(Date.now() / 60000);
+  if (minute !== lastIntelMinute) { lastIntelMinute = minute; renderPublicRotations(); }
   publicRotations.forEach((rotation) => {
     if (rotation.id === "quick-events") {
       const weeklyResetTarget = rotation.weeklyResetTarget || (rotation.weeklyResetDate ? getWeeklyTarget(rotation.weeklyResetDate) : null);
@@ -1877,39 +1877,22 @@ function updateFastWikiTimersFromText(text, doc) {
   }
 }
 
-async function refreshFastWikiTimers() {
-  try {
-    const response = await fetch("https://idleon.wiki/api.php?action=parse&page=Main_Page&prop=text&format=json&origin=*");
-    if (!response.ok) throw new Error("Wiki API unavailable");
-    const content = await response.json();
-    const html = content?.parse?.text?.["*"];
-    if (!html) return;
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const text = doc.body.textContent.replace(/\s+/g, " ");
-    updateFastWikiTimersFromText(text, doc);
-    renderPublicRotations();
-  } catch (error) {
-    console.info("Could not refresh fast wiki timers.", error);
-  }
-}
+
 
 function persistToolboxPayload(payload) {
-  const serialized = JSON.stringify(payload);
-  localStorage.setItem(rawPayloadKey, serialized);
-  sessionStorage.setItem(rawPayloadKey, serialized);
-  setStatus("Ready", `Public profile last updated: ${formatTime(payload.lastUpdated)}. JSON is ready to copy.`);
+  const saved = storage.setItem(rawPayloadKey, JSON.stringify(payload));
+  // Keep legacy session data recoverable. The current local/tab cache takes precedence.
+  return saved;
 }
 
 function getSavedPayload() {
-  try {
-    return JSON.parse(sessionStorage.getItem(rawPayloadKey) || localStorage.getItem(rawPayloadKey) || "null");
-  } catch {
-    return null;
-  }
+  const saved = DashboardProfile.parse(storage.getItem(rawPayloadKey));
+  if (saved) return saved;
+  try { return DashboardProfile.parse(sessionStorage.getItem(rawPayloadKey)); } catch { return null; }
 }
 
 function getManualJson() {
-  return localStorage.getItem(manualJsonKey) || "";
+  return storage.getItem(manualJsonKey) || "";
 }
 
 function setManualJsonStatus() {
@@ -1924,70 +1907,39 @@ function setManualJsonStatus() {
 }
 
 function getSavedAccountLink() {
-  return localStorage.getItem(accountLinkKey) || "";
+  return storage.getItem(accountLinkKey) || "";
 }
 
 function getSavedLinks() {
-  try {
-    const saved = localStorage.getItem(savedLinksKey);
-    const links = saved ? JSON.parse(saved) : [];
-    const normalized = links.map(normalizeSavedLink).filter((link) => !retiredSavedLinkIds.has(link.id));
-    const presetLinks = defaultSavedLinks.map((preset) => {
-      const savedPreset = normalized.find((link) => (
-        link.id === preset.id
-        || (!link.preset && link.type === "sheet" && (link.url === preset.url || link.name === preset.name))
-      ));
-      return normalizeSavedLink({
-        ...(savedPreset || {}),
-        ...preset,
-        id: preset.id,
-        preset: true,
-        personalUrl: savedPreset?.personalUrl || "",
-        hiddenPreset: Boolean(savedPreset?.hiddenPreset),
-        inControls: savedPreset?.inControls,
-        showInTools: Boolean(savedPreset?.showInTools),
-        showInSavedPanel: Boolean(savedPreset?.showInSavedPanel),
-        favorite: Boolean(savedPreset?.favorite),
-        iconText: savedPreset?.iconText || preset.iconText,
-        iconColor: savedPreset?.iconColor || preset.iconColor
-      });
-    });
-    const customLinks = normalized.filter((link) => (
-      !retiredSavedLinkIds.has(link.id) &&
-      !defaultSavedLinks.some((preset) => link.id === preset.id || link.url === preset.url || link.name === preset.name)
-    ));
-    return [...presetLinks, ...customLinks];
-  } catch {
-    return defaultSavedLinks.map(normalizeSavedLink);
-  }
+  const records = readRecords(savedLinksKey);
+  const normalized = records.map((link, index) => normalizeSavedLink(link, index));
+  const presetLinks = defaultSavedLinks.map((preset) => {
+    const saved = records.find((link) => link.id === preset.id);
+    return normalizeSavedLink(saved ? { ...preset, ...saved, id: preset.id, preset: true } : preset);
+  });
+  // Identity is the ID. A matching name or URL never makes a personal link disposable.
+  return [...presetLinks, ...normalized.filter((link) => !defaultSavedLinks.some((preset) => link.id === preset.id))];
 }
 
 function setSavedLinks(links) {
-  localStorage.setItem(savedLinksKey, JSON.stringify(links));
+  storage.setItem(savedLinksKey, JSON.stringify(links));
 }
 
-function normalizeSavedLink(link) {
-  const name = link.name || "Saved Link";
-  const preset = Boolean(link.preset || link.type === "sheet");
-  const personalUrl = link.personalUrl || "";
-  const hiddenPreset = Boolean(link.hiddenPreset);
-  return {
-    id: link.id || `saved-${Math.random().toString(16).slice(2)}-${Date.now()}`,
-    name,
-    url: link.url || "",
-    personalUrl,
-    type: preset ? "sheet" : "manual",
-    preset,
-    hiddenPreset,
-    group: link.group || (preset ? "current" : "custom"),
-    note: link.note || "",
-    showInSavedPanel: Boolean(link.showInSavedPanel),
-    inControls: preset ? Boolean(personalUrl) && !hiddenPreset : link.inControls !== false,
-    showInTools: Boolean(link.showInTools),
+function normalizeSavedLink(link, index = 0) {
+  const name = typeof link.name === "string" ? link.name : "Saved Link";
+  const preset = Boolean(link.preset || link.type === "sheet" || link.type === "doc");
+  const personalUrl = typeof link.personalUrl === "string" ? link.personalUrl : "";
+  return { ...link,
+    id: typeof link.id === "string" && link.id ? link.id : legacyId("link", link, index),
+    name, url: typeof link.url === "string" ? link.url : "", personalUrl,
+    type: link.type || (preset ? "sheet" : "manual"), preset,
+    hiddenPreset: Boolean(link.hiddenPreset), group: link.group || (preset ? "current" : "custom"),
+    note: typeof link.note === "string" ? link.note : "",
+    showInSavedPanel: Boolean(link.showInSavedPanel), showInTools: Boolean(link.showInTools),
+    inControls: link.inControls === undefined ? (preset ? Boolean(personalUrl) : true) : Boolean(link.inControls),
     favorite: Boolean(link.favorite),
-    iconText: (link.iconText || name.replace(/[^A-Za-z0-9]/g, "").slice(0, 3) || "L").slice(0, 3),
-    iconColor: link.iconColor || "#36506a"
-  };
+    iconText: typeof link.iconText === "string" ? link.iconText : name.replace(/[^A-Za-z0-9]/g, "").slice(0, 3) || "L",
+    iconColor: typeof link.iconColor === "string" ? link.iconColor : "#36506a" };
 }
 
 function saveSavedLinks(links) {
@@ -2031,46 +1983,38 @@ function getSavedPanelLinkIds(links = getSavedLinks()) {
 }
 
 function getChecklistSettings() {
-  try {
-    return JSON.parse(localStorage.getItem(checklistSettingsKey) || "{}");
-  } catch {
-    return {};
-  }
+  const settings = storage.readJSON(checklistSettingsKey, {}, isRecord);
+  if (settings.idleonResetTime !== undefined && settings.idleonResetTime !== "" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(settings.idleonResetTime)) storage.protect(checklistSettingsKey);
+  return { ...settings, idleonResetTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(settings.idleonResetTime || "") ? settings.idleonResetTime : "00:00" };
 }
 
 function setChecklistSettings(settings) {
-  localStorage.setItem(checklistSettingsKey, JSON.stringify(settings));
+  storage.setItem(checklistSettingsKey, JSON.stringify(settings));
 }
 
 function getChecklistItems() {
-  try {
-    const savedItems = localStorage.getItem(checklistItemsKey);
-    const parsedItems = savedItems ? JSON.parse(savedItems) : defaultChecklistItems;
-    return parsedItems.map((item) => ({
-      id: item.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      text: item.text || "",
-      type: item.type || "daily",
-      done: Boolean(item.done)
-    }));
-  } catch {
-    return [];
-  }
+  const items = storage.getItem(checklistItemsKey) === null ? defaultChecklistItems : readRecords(checklistItemsKey);
+  return items.map((item, index) => ({ ...item,
+    id: typeof item.id === "string" && item.id ? item.id : legacyId("task", item, index),
+    text: typeof item.text === "string" ? item.text : "",
+    type: ["current", "daily", "weekly"].includes(item.type) ? item.type : "daily", done: Boolean(item.done) }));
 }
 
 function setChecklistItems(items) {
-  localStorage.setItem(checklistItemsKey, JSON.stringify(items));
+  storage.setItem(checklistItemsKey, JSON.stringify(items));
 }
 
 function getChecklistState() {
-  try {
-    return JSON.parse(localStorage.getItem(checklistStateKey) || "{}");
-  } catch {
-    return {};
-  }
+  const saved = storage.readJSON(checklistStateKey, {}, isRecord);
+  if (["checked", "dailyChecked", "weeklyChecked"].some((key) => saved[key] !== undefined && !isRecord(saved[key]))) storage.protect(checklistStateKey);
+  return { ...saved,
+    dailyChecked: isRecord(saved.dailyChecked) ? saved.dailyChecked : undefined,
+    weeklyChecked: isRecord(saved.weeklyChecked) ? saved.weeklyChecked : undefined,
+    checked: isRecord(saved.checked) ? saved.checked : undefined };
 }
 
 function setChecklistState(stateValue) {
-  localStorage.setItem(checklistStateKey, JSON.stringify(stateValue));
+  storage.setItem(checklistStateKey, JSON.stringify(stateValue));
 }
 
 function localDateKey(date) {
@@ -2114,6 +2058,7 @@ function getActiveChecklistState() {
   const weeklyKey = getWeeklyChecklistResetKey();
   const stateValue = getChecklistState();
   const nextState = {
+    ...stateValue,
     dailyKey,
     weeklyKey,
     dailyChecked: stateValue.dailyKey === dailyKey ? (stateValue.dailyChecked || stateValue.checked || {}) : {},
@@ -2278,7 +2223,7 @@ function renderChecklist() {
     row.innerHTML = `
       <label>
         <input type="checkbox" ${checked ? "checked" : ""}>
-        <span>${item.text}</span>
+        <span>${escapeHtml(item.text)}</span>
       </label>
       <button type="button" title="${group.id === "finished" ? "Move this goal back to Current Goals." : "Remove this checklist item."}">${group.id === "finished" ? "Restore" : "Remove"}</button>
     `;
@@ -2350,7 +2295,7 @@ function renderSavedLinks() {
         <strong>${escapeHtml(link.name)}</strong>
       </div>
       <div class="saved-link-actions ${isPreset ? "" : "saved-link-actions-single"}">
-        ${isPreset ? `<a class="saved-link-open-original" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>` : `<a class="saved-link-open-custom" href="${escapeHtml(savedLinkTarget(link))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>`}
+        ${isPreset ? `<a class="saved-link-open-original" href="${escapeHtml(safeWebUrl(link.url))}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>` : `<a class="saved-link-open-custom" href="${escapeHtml(safeWebUrl(savedLinkTarget(link)))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>`}
       </div>
       ${isPreset ? `
         <label class="saved-link-copy-field">
@@ -2368,9 +2313,13 @@ function renderSavedLinks() {
     });
     row.querySelector(".saved-link-personal-url")?.addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
-      const personalUrl = event.target.value.trim();
-      nextLinks[index] = {
-        ...nextLinks[index],
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      let personalUrl;
+      try { personalUrl = event.target.value.trim() ? requireWebUrl(event.target.value.trim()) : ""; }
+      catch { event.target.value = link.personalUrl; return; }
+      nextLinks[nextIndex] = {
+        ...nextLinks[nextIndex],
         personalUrl,
         hiddenPreset: false,
         inControls: Boolean(personalUrl)
@@ -2391,18 +2340,15 @@ function renderSavedLinks() {
       }
 
       const nextLinks = getSavedLinks();
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
       if (isPreset) {
-        nextLinks[index] = {
-          ...nextLinks[index],
-          personalUrl: "",
-          hiddenPreset: true,
-          inControls: false,
-          showInTools: false,
-          showInSavedPanel: false,
-          favorite: false
+        nextLinks[nextIndex] = {
+          ...nextLinks[nextIndex],
+          hiddenPreset: true
         };
       } else {
-        nextLinks.splice(index, 1);
+        nextLinks.splice(nextIndex, 1);
       }
       saveSavedLinks(nextLinks);
       render();
@@ -2453,7 +2399,7 @@ function renderSavedLinksManager() {
       </div>
       ${link.preset ? `
         <div class="saved-manager-actions">
-          <a class="saved-manager-open" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>
+          <a class="saved-manager-open" href="${escapeHtml(safeWebUrl(link.url))}" target="_blank" rel="noopener noreferrer" title="Open the original ${escapeHtml(link.name)} resource.">Original</a>
           <button class="saved-manager-restore" type="button" title="${link.hiddenPreset ? "Restore this built-in resource." : "Clear your copy and reset this resource."}">${link.hiddenPreset ? "Restore" : "Clear Copy"}</button>
           <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this resource from the sidebar preview." : "Show this resource in the sidebar preview."}">${sideButtonText}</button>
           <button class="saved-manager-remove" type="button" title="Hide this built-in resource from saved links.">Hide</button>
@@ -2464,9 +2410,9 @@ function renderSavedLinksManager() {
         </label>
       ` : `
         <input class="saved-manager-name" type="text" value="${escapeHtml(link.name)}" aria-label="Custom link name">
-        <input class="saved-manager-url" type="url" value="${escapeHtml(link.url)}" aria-label="Custom link URL">
+        <input class="saved-manager-url" type="url" value="${escapeHtml(safeWebUrl(link.url))}" aria-label="Custom link URL">
         <div class="saved-manager-actions">
-          <a class="saved-manager-open" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>
+          <a class="saved-manager-open" href="${escapeHtml(safeWebUrl(link.url))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">Open</a>
           <button class="saved-manager-sidebar" type="button" title="${link.showInSavedPanel ? "Remove this link from the sidebar preview." : "Show this link in the sidebar preview."}">${sideButtonText}</button>
           <button class="saved-manager-remove" type="button" title="Remove this custom link.">Remove</button>
         </div>
@@ -2488,10 +2434,12 @@ function renderSavedLinksManager() {
     });
     row.querySelector(".saved-manager-sidebar")?.addEventListener("click", () => {
       const nextLinks = getSavedLinks();
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
       const nextPanelIds = getSavedPanelLinkIds(nextLinks);
-      const isVisible = nextPanelIds.has(nextLinks[index].id);
-      nextLinks[index] = {
-        ...nextLinks[index],
+      const isVisible = nextPanelIds.has(nextLinks[nextIndex].id);
+      nextLinks[nextIndex] = {
+        ...nextLinks[nextIndex],
         hiddenPreset: false,
         showInSavedPanel: !isVisible
       };
@@ -2500,23 +2448,25 @@ function renderSavedLinksManager() {
     });
     row.querySelector(".saved-manager-restore")?.addEventListener("click", () => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = {
-        ...nextLinks[index],
-        personalUrl: "",
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = {
+        ...nextLinks[nextIndex],
         hiddenPreset: false,
-        inControls: false,
-        showInTools: false,
-        showInSavedPanel: false,
-        favorite: false
+        ...(link.hiddenPreset ? {} : { personalUrl: "", inControls: false })
       };
       saveSavedLinks(nextLinks);
       render();
     });
     row.querySelector(".saved-manager-personal-url")?.addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
-      const personalUrl = event.target.value.trim();
-      nextLinks[index] = {
-        ...nextLinks[index],
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      let personalUrl;
+      try { personalUrl = event.target.value.trim() ? requireWebUrl(event.target.value.trim()) : ""; }
+      catch { event.target.value = link.personalUrl; return; }
+      nextLinks[nextIndex] = {
+        ...nextLinks[nextIndex],
         personalUrl,
         hiddenPreset: false,
         inControls: Boolean(personalUrl)
@@ -2526,15 +2476,19 @@ function renderSavedLinksManager() {
     });
     row.querySelector(".saved-manager-name")?.addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = { ...nextLinks[index], name: event.target.value.trim() || nextLinks[index].name };
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = { ...nextLinks[nextIndex], name: event.target.value.trim() || nextLinks[nextIndex].name };
       saveSavedLinks(nextLinks);
       render();
     });
     row.querySelector(".saved-manager-url")?.addEventListener("change", (event) => {
       try {
-        const nextUrl = new URL(event.target.value.trim()).href;
+        const nextUrl = requireWebUrl(event.target.value.trim());
         const nextLinks = getSavedLinks();
-        nextLinks[index] = { ...nextLinks[index], url: nextUrl };
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+        nextLinks[nextIndex] = { ...nextLinks[nextIndex], url: nextUrl };
         saveSavedLinks(nextLinks);
         render();
       } catch {
@@ -2543,16 +2497,20 @@ function renderSavedLinksManager() {
     });
     row.querySelector(".saved-manager-icon-text").addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = {
-        ...nextLinks[index],
-        iconText: event.target.value.trim().slice(0, 3) || nextLinks[index].iconText
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = {
+        ...nextLinks[nextIndex],
+        iconText: event.target.value.trim().slice(0, 3) || nextLinks[nextIndex].iconText
       };
       saveSavedLinks(nextLinks);
       render();
     });
     row.querySelector(".saved-manager-icon-color").addEventListener("change", (event) => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = { ...nextLinks[index], iconColor: event.target.value };
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = { ...nextLinks[nextIndex], iconColor: event.target.value };
       saveSavedLinks(nextLinks);
       render();
     });
@@ -2569,18 +2527,15 @@ function renderSavedLinksManager() {
       }
 
       const nextLinks = getSavedLinks();
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
       if (link.preset) {
-        nextLinks[index] = {
-          ...nextLinks[index],
-          personalUrl: "",
-          hiddenPreset: true,
-          inControls: false,
-          showInTools: false,
-          showInSavedPanel: false,
-          favorite: false
+        nextLinks[nextIndex] = {
+          ...nextLinks[nextIndex],
+          hiddenPreset: true
         };
       } else {
-        nextLinks.splice(index, 1);
+        nextLinks.splice(nextIndex, 1);
       }
       saveSavedLinks(nextLinks);
       render();
@@ -2616,8 +2571,8 @@ function syncProfileLink() {
   const username = getUsername();
   const link = getProfileLink(username);
   accountLink.value = link;
-  localStorage.setItem(usernameKey, username);
-  localStorage.setItem(accountLinkKey, link);
+  storage.setItem(usernameKey, username);
+  storage.setItem(accountLinkKey, link);
   return { username, link };
 }
 
@@ -2632,72 +2587,49 @@ async function copyAccountLinkField() {
   setStatus(copied ? "Copied Link" : "Copy Failed", copied ? "Copied the Toolbox profile link." : "Your browser blocked clipboard access.");
 }
 
+function cancelProfileRequest() {
+  profileRequestId += 1;
+  profileController?.abort();
+  profileController = null;
+  document.querySelector("#fetchProfileData").disabled = false;
+}
 async function fetchProfileData(options = {}) {
   const silent = Boolean(options.silent);
+  cancelProfileRequest();
+  const requestId = profileRequestId;
   const { username, link } = syncProfileLink();
-  if (!username) {
-    setStatus("Missing Username", "Enter a Toolbox username first.");
-    return;
-  }
-
+  if (!username) { setStatus("Missing Username", "Enter a Toolbox username first."); return; }
+  const button = document.querySelector("#fetchProfileData");
+  button.disabled = true;
+  const current = () => requestId === profileRequestId && username === getUsername();
+  if (!silent) setStatus("Checking", `Getting the public Toolbox upload for ${username}.`);
+  const urls = [`${localProfilesApiUrl}?profile=${encodeURIComponent(username)}`];
+  let lastError;
   try {
-    if (!silent) setStatus("Fetching", `Getting public Toolbox profile for ${username}.`);
-    const encodedUsername = encodeURIComponent(username);
-    const cacheBust = Date.now();
-    const profileUrls = window.location.protocol === "file:"
-      ? [`${profilesApiUrl}/profiles/?profile=${encodedUsername}&_=${cacheBust}`]
-      : [
-        `${localProfilesApiUrl}?profile=${encodedUsername}&_=${cacheBust}`,
-        `${profilesApiUrl}/profiles/?profile=${encodedUsername}&_=${cacheBust}`
-      ];
-    let response = null;
-    let lastError = null;
-    for (const profileUrl of profileUrls) {
+    for (const url of urls) {
+      const controller = new AbortController();
+      profileController = controller;
+      const timeout = setTimeout(() => controller.abort(), 15000);
       try {
-        response = await fetch(profileUrl, {
-          method: "GET",
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache"
-          }
-        });
-        if (response.ok) break;
-        lastError = new Error(`Profile request failed with ${response.status}.`);
+        const response = await fetch(url, { method: "GET", cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(response.status === 404 ? "This public profile was not found. Check the username and public upload." : `Profile service returned ${response.status}. Please try again.`);
+        const content = await response.json();
+        const payload = DashboardProfile.normalize(content, username, link);
+        if (!current()) return;
+        const saved = persistToolboxPayload(payload);
+        setIntelSource("toolbox");
+        renderPublicRotations();
+        setStatus(saved ? "Checked" : "Loaded for this tab", `${username} — ${formatTime(payload.lastUpdated)}.${saved ? "" : " Download a backup before closing this tab."}`);
+        return;
       } catch (error) {
-        lastError = error;
-      }
-      response = null;
+        if (!current()) return;
+        lastError = error.name === "AbortError" ? new Error("The profile request timed out. Your previous data is still available.") : error;
+      } finally { clearTimeout(timeout); }
     }
-    if (!response) throw lastError || new Error("Profile request failed.");
-    const content = await response.json();
-    if (!content) throw new Error("No profile data came back.");
-    const payload = {
-      data: content.data || content,
-      charNames: content.charNames,
-      companion: content.companion,
-      guildData: content.guildData,
-      tournament: content.tournament,
-      serverVars: content.serverVars || {},
-      parsedData: content.parsedData || null,
-      accountCreateTime: content.accountCreateTime,
-      profileLink: link,
-      username,
-      lastUpdated: content.lastUpdated || Date.now(),
-      publicProfile: true
-    };
-    persistToolboxPayload(payload);
-    setIntelSource("toolbox");
-    renderPublicRotations();
-    setStatus(silent ? "Auto-synced" : "Checked", `Public profile for ${username} was last updated: ${formatTime(payload.lastUpdated)}.`);
+    throw lastError;
   } catch (error) {
-    console.error(error);
-    if (!silent) {
-      const fileHint = window.location.protocol === "file:"
-        ? " This local file version is blocked by browser CORS. Use the localhost dashboard server for username fetching."
-        : "";
-      setStatus("Fetch Failed", `${error.message || "Could not fetch that Toolbox profile."}${fileHint}`);
-    }
-  }
+    if (current()) setStatus("Check failed", `${error?.message || "Could not load this public profile."} Previous data has been kept.`);
+  } finally { if (current()) { button.disabled = false; profileController = null; } }
 }
 
 function renderCards() {
@@ -2713,7 +2645,7 @@ function renderCards() {
     .map((id) => visibleTools.find((tool) => tool.id === id))
     .filter(Boolean);
   const displayedTools = toolsLayout.compact ? orderedTools.slice(0, 24) : orderedTools.slice(0, 6);
-  const visibleSavedLinks = toolsLayout.compact ? getSavedLinks().filter((link) => link.showInTools) : [];
+  const visibleSavedLinks = toolsLayout.compact ? getSavedLinks().filter((link) => link.showInTools && !link.hiddenPreset) : [];
   toolCount.textContent = toolsLayout.compact || orderedTools.length <= displayedTools.length
     ? `${orderedTools.length} tools`
     : `${displayedTools.length} of ${orderedTools.length} tools`;
@@ -2768,13 +2700,13 @@ function renderCards() {
     card.className = "tool-card saved-tool-card";
     card.innerHTML = `
       <div class="card-top">
-        <button class="saved-tool-icon" type="button" title="Open ${link.name}" style="background:${link.iconColor}">
-          ${link.iconText}
+        <button class="saved-tool-icon" type="button" title="Open ${escapeHtml(link.name)}" style="background:${safeColor(link.iconColor)}">
+          ${escapeHtml(link.iconText)}
         </button>
       </div>
       <div>
         <p class="category">${link.type === "sheet" ? "Sheet" : "Saved Link"}</p>
-        <h2>${link.name}</h2>
+        <h2>${escapeHtml(link.name)}</h2>
         <p class="description">${link.type === "sheet" ? "Your saved copy or the original community sheet." : "Custom saved link."}</p>
       </div>
       <div class="tag-row"></div>
@@ -2787,7 +2719,7 @@ function renderCards() {
     const open = card.querySelector(".primary-action");
     const copy = card.querySelector(".copy-link");
     card.querySelector(".saved-tool-icon").addEventListener("click", () => launchUrl(target));
-    open.href = target;
+    open.href = safeWebUrl(target);
     open.addEventListener("click", (event) => {
       event.preventDefault();
       launchUrl(target);
@@ -2837,14 +2769,14 @@ function renderQuickList() {
   });
 
   getSavedLinks().forEach((link, index) => {
-    if (!link.inControls) return;
+    if (link.hiddenPreset || !link.inControls) return;
     const row = document.createElement("div");
     row.className = "control-row control-row-saved";
     row.classList.toggle("is-favorite", link.favorite);
     row.classList.toggle("is-hidden-tool", !link.showInTools);
     row.innerHTML = `
       <button class="control-star" type="button" title="${link.favorite ? "Remove" : "Add"} ${escapeHtml(link.name)} ${link.favorite ? "from" : "to"} favorites."><span class="icon icon-star" aria-hidden="true"></span></button>
-      <a class="control-open" href="${escapeHtml(savedLinkTarget(link))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">
+      <a class="control-open" href="${escapeHtml(safeWebUrl(savedLinkTarget(link)))}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(link.name)}.">
         <span>${escapeHtml(link.name)}</span>
       </a>
       <button class="control-hide" type="button" title="${link.showInTools ? "Hide" : "Show"} ${escapeHtml(link.name)} in compact Tools."><span class="icon ${link.showInTools ? "icon-eye-open" : "icon-eye-closed"}" aria-hidden="true"></span></button>
@@ -2855,12 +2787,16 @@ function renderQuickList() {
     });
     row.querySelector(".control-star").addEventListener("click", () => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = { ...nextLinks[index], favorite: !nextLinks[index].favorite };
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = { ...nextLinks[nextIndex], favorite: !nextLinks[nextIndex].favorite };
       saveSavedLinks(nextLinks);
     });
     row.querySelector(".control-hide").addEventListener("click", () => {
       const nextLinks = getSavedLinks();
-      nextLinks[index] = { ...nextLinks[index], showInTools: !nextLinks[index].showInTools, inControls: true };
+      const nextIndex = nextLinks.findIndex((savedLink) => savedLink.id === link.id);
+      if (nextIndex < 0) return;
+      nextLinks[nextIndex] = { ...nextLinks[nextIndex], showInTools: !nextLinks[nextIndex].showInTools, inControls: true };
       saveSavedLinks(nextLinks);
       render();
     });
@@ -2914,12 +2850,12 @@ function closeOnboarding(savePreference = false) {
   if (!onboardingModal) return;
   onboardingModal.hidden = true;
   if (savePreference || dontShowOnboarding?.checked) {
-    localStorage.setItem(onboardingSeenKey, "true");
+    storage.setItem(onboardingSeenKey, "true");
   }
 }
 
 function maybeShowOnboarding() {
-  if (!onboardingModal || localStorage.getItem(onboardingSeenKey) === "true") return;
+  if (!onboardingModal || storage.getItem(onboardingSeenKey) === "true") return;
   onboardingModal.hidden = false;
 }
 
@@ -2980,7 +2916,7 @@ savedLinkForm.addEventListener("submit", (event) => {
   if (!name || !url) return;
 
   try {
-    const normalizedUrl = new URL(url).href;
+    const normalizedUrl = requireWebUrl(url);
     const links = getSavedLinks();
     links.push({
       id: `manual-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -3001,10 +2937,11 @@ savedLinkForm.addEventListener("submit", (event) => {
 });
 
 document.querySelector("#copyLilBoProfile").addEventListener("click", () => {
+  cancelProfileRequest();
   toolboxUsername.value = "Lil_bo";
   accountLink.value = lilBoProfileUrl;
-  localStorage.setItem(usernameKey, "Lil_bo");
-  localStorage.setItem(accountLinkKey, lilBoProfileUrl);
+  storage.setItem(usernameKey, "Lil_bo");
+  storage.setItem(accountLinkKey, lilBoProfileUrl);
   copyUrl(lilBoProfileUrl, document.querySelector("#copyLilBoProfile"));
   setStatus("Copied", "Using Lil_bo. Copied and saved the Toolbox profile link.");
 });
@@ -3033,17 +2970,39 @@ accountLink.addEventListener("focus", () => accountLink.select());
 document.querySelector("#pasteManualJson").addEventListener("click", async () => {
   try {
     const text = await navigator.clipboard.readText();
-    JSON.parse(text);
-    localStorage.setItem(manualJsonKey, text);
+    if (!DashboardProfile.parse(text)) throw new Error("This JSON does not contain a usable IdleOn profile.");
+    storage.setItem(manualJsonKey, text);
     setManualJsonStatus();
     renderPublicRotations();
   } catch (error) {
     console.error(error);
-    manualJsonStatus.textContent = "Invalid";
+    manualJsonStatus.textContent = "Paste failed — use the paste field";
   }
 });
 
+const manualDialog = document.querySelector("#manualJsonDialog");
+const manualText = document.querySelector("#manualJsonText");
+const manualFeedback = document.querySelector("#manualJsonFeedback");
+document.querySelector("#openManualJson").addEventListener("click", () => { manualText.value = ""; manualFeedback.textContent = ""; manualDialog.showModal(); });
+document.querySelector("#closeManualJson").addEventListener("click", () => manualDialog.close());
+manualDialog.addEventListener("close", () => document.querySelector("#openManualJson").focus());
+document.querySelector("#manualJsonFile").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 16 * 1024 * 1024) { manualFeedback.textContent = "Choose a profile smaller than 16 MB."; return; }
+  try { manualText.value = await file.text(); manualFeedback.textContent = "File loaded. Save to keep this data."; }
+  catch { manualFeedback.textContent = "This file could not be read."; }
+});
+document.querySelector("#saveManualJson").addEventListener("click", () => {
+  const text = manualText.value.trim();
+  if (text.length > 16 * 1024 * 1024 || !DashboardProfile.parse(text)) { manualFeedback.textContent = "Paste valid IdleOn profile JSON containing data or serverVars."; return; }
+  const saved = storage.setItem(manualJsonKey, text);
+  setManualJsonStatus(); renderPublicRotations();
+  manualFeedback.textContent = saved ? "Manual JSON saved. Select Use Manual JSON For Intel to switch sources." : "Loaded for this tab. Download a backup before closing.";
+});
+
 useManualJsonForIntel?.addEventListener("click", () => {
+  cancelProfileRequest();
   const manual = getManualProfileData();
   if (!manual) {
     manualJsonStatus.textContent = getManualJson() ? "Invalid" : "Empty";
@@ -3064,24 +3023,25 @@ document.querySelector("#copyManualJson").addEventListener("click", async () => 
 });
 
 document.querySelector("#clearManualJson").addEventListener("click", () => {
-  localStorage.removeItem(manualJsonKey);
-  if (localStorage.getItem(intelSourceKey) === "manual") setIntelSource("toolbox");
+  storage.removeItem(manualJsonKey);
+  if (storage.getItem(intelSourceKey) === "manual") setIntelSource("toolbox");
   setManualJsonStatus();
   renderPublicRotations();
 });
 
-notes.value = localStorage.getItem(notesKey) || "";
+notes.value = storage.getItem(notesKey) || "";
 notes.addEventListener("input", () => {
-  localStorage.setItem(notesKey, notes.value);
+  storage.setItem(notesKey, notes.value);
 });
 
-toolboxUsername.value = localStorage.getItem(usernameKey) || "";
+toolboxUsername.value = storage.getItem(usernameKey) || "";
 accountLink.value = getSavedAccountLink();
 toolboxUsername.addEventListener("input", () => {
+  cancelProfileRequest();
   const username = getUsername();
   accountLink.value = getProfileLink(username);
-  localStorage.setItem(usernameKey, username);
-  localStorage.setItem(accountLinkKey, accountLink.value);
+  storage.setItem(usernameKey, username);
+  storage.setItem(accountLinkKey, accountLink.value);
 });
 const savedPayload = getSavedPayload();
 if (savedPayload) {
@@ -3094,9 +3054,16 @@ renderPublicRotations();
 renderRateCalculator();
 renderSavedLinks();
 renderChecklist();
-refreshFastWikiTimers();
 setInterval(updatePublicRotationTimers, 1000);
 setInterval(refreshChecklistIfResetChanged, 1000);
-setInterval(refreshFastWikiTimers, 300000);
 render();
 maybeShowOnboarding();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { updatePublicRotationTimers(); refreshChecklistIfResetChanged(); } });
+
+}
+initializeDashboard().catch((error) => {
+  console.error("Dashboard startup failed", error);
+  const warning = document.querySelector("#storageWarning");
+  warning.hidden = false;
+  document.querySelector("#storageWarningText").textContent = "The dashboard could not finish loading. Your saved data has not been cleared. Reload to try again.";
+});

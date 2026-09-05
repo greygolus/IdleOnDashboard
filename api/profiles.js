@@ -1,10 +1,20 @@
 const profileBase = "https://profiles.idleontoolbox.workers.dev/api";
 
 module.exports = async function handler(request, response) {
+  response.setHeader("Cache-Control", "no-store");
+  if (request.method !== "GET") {
+    response.setHeader("Allow", "GET");
+    response.status(405).json({ error: "Use GET to check a public profile." });
+    return;
+  }
   const username = String(request.query.profile || "").trim();
 
   if (!username) {
     response.status(400).json({ error: "Missing profile username." });
+    return;
+  }
+  if (username.length > 128) {
+    response.status(400).json({ error: "Profile username is too long." });
     return;
   }
 
@@ -12,6 +22,7 @@ module.exports = async function handler(request, response) {
     const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username)}&_=${Date.now()}`;
     const profileResponse = await fetch(target, {
       cache: "no-store",
+      signal: AbortSignal.timeout(12000),
       headers: {
         "Accept": "application/json",
         "Cache-Control": "no-cache"
@@ -27,6 +38,7 @@ module.exports = async function handler(request, response) {
     response.setHeader("Content-Type", contentType);
     response.status(profileResponse.status).send(body);
   } catch (error) {
-    response.status(502).json({ error: error.message || "Profile proxy failed." });
+    const timedOut = error.name === "TimeoutError" || error.name === "AbortError";
+    response.status(timedOut ? 504 : 502).json({ error: timedOut ? "The profile service timed out. Please try again." : "The profile service is unavailable. Please try again." });
   }
 };

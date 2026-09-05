@@ -29,35 +29,12 @@ function send(response, status, body, headers = {}) {
 }
 
 function proxyProfile(request, response, url) {
-  const username = url.searchParams.get("profile") || "";
-  if (!username.trim()) {
-    send(response, 400, JSON.stringify({ error: "Missing profile username." }), {
-      "Content-Type": "application/json; charset=utf-8"
-    });
-    return;
-  }
-
-  const target = `${profileBase}/profiles/?profile=${encodeURIComponent(username.trim())}&_=${Date.now()}`;
-  https.get(target, {
-    headers: {
-      "Accept": "application/json",
-      "Cache-Control": "no-cache"
-    }
-  }, (profileResponse) => {
-    let body = "";
-    profileResponse.setEncoding("utf8");
-    profileResponse.on("data", (chunk) => {
-      body += chunk;
-    });
-    profileResponse.on("end", () => {
-      send(response, profileResponse.statusCode || 502, body, {
-        "Content-Type": profileResponse.headers["content-type"] || "application/json; charset=utf-8"
-      });
-    });
-  }).on("error", (error) => {
-    send(response, 502, JSON.stringify({ error: error.message }), {
-      "Content-Type": "application/json; charset=utf-8"
-    });
+  request.query = { profile: url.searchParams.get("profile") };
+  response.status = (code) => { response.statusCode = code; return response; };
+  response.json = (value) => { response.setHeader("Content-Type", "application/json; charset=utf-8"); response.end(JSON.stringify(value)); };
+  response.send = (body) => response.end(body);
+  require("./api/profiles")(request, response).catch(() => {
+    if (!response.writableEnded) send(response, 502, "Profile service unavailable");
   });
 }
 
@@ -90,7 +67,7 @@ function proxyWiki(request, response, url) {
 function serveStatic(request, response, url) {
   const pathname = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname);
   const filePath = path.resolve(root, `.${pathname}`);
-  if (!filePath.startsWith(root)) {
+  if (!filePath.startsWith(root + path.sep)) {
     send(response, 403, "Forbidden", { "Content-Type": "text/plain; charset=utf-8" });
     return;
   }
@@ -119,6 +96,6 @@ const server = http.createServer((request, response) => {
   serveStatic(request, response, url);
 });
 
-server.listen(port, () => {
+server.listen(port, "127.0.0.1", () => {
   console.log(`IdleOn Dashboard running at http://localhost:${port}/`);
 });

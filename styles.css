@@ -2574,3 +2574,23 @@ textarea:focus {
     min-height: 70px;
   }
 }
+
+/* Recovery controls use the existing dashboard palette. */
+
+.storage-warning { position: fixed; z-index: 1000; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #49351d; color: #fff7d9; border-bottom: 2px solid var(--gold); font-size: 1rem; box-shadow: 0 4px 20px #0008; }
+.storage-warning[hidden] { display: none; }
+.storage-warning span { flex: 1; }
+.backup-dialog { color: var(--text); background: var(--panel); border: 2px solid var(--line); border-radius: 12px; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; overflow: auto; font-size: 1rem; line-height: 1.5; }
+.backup-dialog::backdrop { background: #000b; }
+.backup-dialog p { margin: 16px 0; }
+.backup-dialog button, .backup-dialog input, .backup-dialog summary { min-height: 44px; font-size: 0.95rem; }
+.backup-dialog input[type="file"] { max-width: 100%; }
+.backup-dialog textarea { width: 100%; min-height: 180px; }
+.backup-dialog details { margin: 20px 0; }
+.backup-dialog summary { cursor: pointer; }
+.backup-dialog label { display: block; margin: 12px 0; }
+.backup-dialog .backup-check { display: flex; align-items: center; gap: 10px; }
+.backup-dialog input[type="checkbox"] { width: 20px; min-height: 20px; }
+.backup-dialog :focus-visible, .storage-warning :focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 3px; }
+.intel-source-status { color: var(--muted); font-size: 0.875rem; line-height: 1.4; margin: 0 0 8px; }
+@media (max-width: 760px) { .storage-warning { flex-direction: column; padding: 10px; max-height: 45dvh; overflow: auto; } .backup-dialog { padding: 16px; } }

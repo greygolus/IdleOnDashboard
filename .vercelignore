@@ -7,3 +7,9 @@ npm-debug.log*
 Thumbs.db
 .env
 .env.*
+.verification/
+test-results/
+playwright-report/
+tests/
+rebuild-context/
+IMPROVEMENT_PLAN.md

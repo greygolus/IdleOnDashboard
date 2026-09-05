@@ -35,6 +35,10 @@
     <script defer src="/_vercel/insights/script.js"></script>
   </head>
   <body>
+    <aside id="storageWarning" class="storage-warning" role="status" hidden>
+      <span id="storageWarningText">Preparing your saved data safely…</span>
+      <button type="button" data-open-backup>Backups &amp; recovery</button>
+    </aside>
     <main class="shell">
       <section class="workspace" aria-labelledby="page-title">
         <div class="hero">
@@ -43,6 +47,7 @@
             <p class="subtitle">A focused launch board for planners, optimizers, reviews, and reference sheets.</p>
           </div>
           <div class="hero-actions" aria-label="Dashboard actions">
+            <button class="open-favorites-button secondary-help-button" type="button" data-open-backup>Backups</button>
             <button class="icon-button" id="scrollBottom" type="button" title="Jump to Current Intel">
               <span class="icon icon-down" aria-hidden="true"></span>
               <span class="sr-only">Jump to Current Intel</span>
@@ -68,6 +73,7 @@
               <button class="help-dot" type="button" title="Current Intel shows public rotation and timer info. Weekly Battle, Lab Rotation, and Exotic Market follow the weekly server reset. Event and tournament info can use your latest public Toolbox profile data.">?</button>
             </div>
 
+            <p id="intelSourceStatus" class="intel-source-status">Public schedules</p>
             <div class="rotation-grid" id="rotationGrid">
               <article class="utility-card rate-card custom-card" data-section-id="intel" data-card-id="rate-card">
                 <div class="panel-heading">
@@ -191,6 +197,7 @@
           <div class="account-panel">
             <p class="sync-meta">If your profile is private or you just need a place to store your data for using the other tools.</p>
             <button id="pasteManualJson" type="button" title="Save valid Idleon JSON from your clipboard in a separate manual JSON slot.">Paste JSON From Clipboard</button>
+            <button id="openManualJson" type="button">Paste or upload JSON</button>
             <button id="useManualJsonForIntel" type="button" title="Use the manually saved JSON as the data source for Current Intel.">Use Manual JSON For Intel</button>
             <button id="copyManualJson" type="button" title="Copy the manually saved JSON back to your clipboard.">Copy Manual JSON</button>
             <button id="clearManualJson" type="button" title="Clear only the manually saved JSON.">Clear Manual JSON</button>
@@ -201,7 +208,7 @@
           <div class="panel-heading">
             <h2>Notes</h2>
             <button class="help-dot" type="button" title="Local notes save in this browser only. Use this for reminders while checking tools or planning upgrades.">?</button>
-            <span>Local</span>
+            <span id="notesSaveStatus">Local</span>
           </div>
           <textarea id="notes" spellcheck="true" placeholder="Jot down what you are checking next."></textarea>
         </section>
@@ -322,6 +329,33 @@
       </article>
     </template>
 
+    <dialog id="backupDialog" class="backup-dialog" aria-labelledby="backupTitle">
+      <div class="panel-heading"><h2 id="backupTitle">Backups &amp; recovery</h2><button id="closeBackup" type="button">Close</button></div>
+      <p>Your links, notes, tasks, and settings stay on this device. A downloaded backup also protects them if browser data is cleared.</p>
+      <p id="backupStatus" role="status"></p>
+      <label class="backup-check"><input id="backupIncludeProfiles" type="checkbox" checked> Include Toolbox and manual profile JSON</label>
+      <button id="downloadBackup" type="button">Download current backup</button>
+      <details><summary>Recovery copies</summary>
+        <p>Automatic copies include all dashboard data. They stay on this device and can be cleared with browser data.</p>
+        <div class="button-row"><button id="downloadOriginal" type="button">Download before-update copy</button><button id="downloadRecovery" type="button">Download before-restore copy</button></div>
+      </details>
+      <hr>
+      <label for="backupFile">Restore a dashboard backup</label>
+      <input id="backupFile" type="file" accept=".json,application/json">
+      <p id="restorePreview" role="status">Choose a file to review what will be restored.</p>
+      <button id="restoreBackup" type="button" disabled>Restore selected backup</button>
+    </dialog>
+    <dialog id="manualJsonDialog" class="backup-dialog" aria-labelledby="manualJsonTitle">
+      <div class="panel-heading"><h2 id="manualJsonTitle">Manual profile data</h2><button id="closeManualJson" type="button">Close</button></div>
+      <label for="manualJsonText">Paste your IdleOn JSON</label>
+      <textarea id="manualJsonText" spellcheck="false"></textarea>
+      <label for="manualJsonFile">Or choose a JSON file</label><input id="manualJsonFile" type="file" accept=".json,application/json">
+      <p id="manualJsonFeedback" role="status"></p>
+      <button id="saveManualJson" type="button">Save manual JSON</button>
+    </dialog>
+    <script src="storage.js"></script>
+    <script src="profile-data.js"></script>
+    <script src="data-safety.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

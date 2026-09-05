@@ -7,3 +7,6 @@ Thumbs.db
 references/
 
 .vercel
+.verification/
+test-results/
+playwright-report/

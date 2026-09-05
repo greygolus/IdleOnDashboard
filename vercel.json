@@ -29,6 +29,18 @@
     {
       "src": "assets/**",
       "use": "@vercel/static"
+    },
+    {
+      "src": "storage.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "profile-data.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "data-safety.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
