@@ -30,6 +30,7 @@ function fixture() {
 async function prepare(page, values = fixture()) {
   await page.clock.install({ time: now });
   await page.addInitScript((values) => {
+    localStorage.setItem('idleon-dashboard.notice.2026-09-small-updates', 'seen');
     if (!sessionStorage.getItem("test-seeded")) {
       Object.entries(values).forEach(([key, value]) => localStorage.setItem(key, value));
       sessionStorage.setItem("test-seeded", "yes");

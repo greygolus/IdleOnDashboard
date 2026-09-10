@@ -2201,6 +2201,15 @@ h1 { font-size: clamp(1.8rem, 2.8vw, 2.8rem); line-height: 1.08; }
   .hero-actions button { padding-inline: 8px; font-size: 0.75rem; }
 }
 
+.icon-link img[src$="steamdb-logo.svg"] { width: 32px; height: 32px; filter: brightness(0) invert(1); }
+.dashboard-dialog .update-notice { width: 480px; max-width: 100%; padding: 24px; background: #1b2634; color: #eef2fa; border: 1px solid #697a94; border-radius: 10px; }
+.update-notice-from { margin: 0 0 8px; color: #e6ba64; font-size: 0.8rem; font-weight: 700; }
+.update-notice h2 { margin: 0 0 16px; font-size: 1.45rem; line-height: 1.25; }
+.update-notice p:not(.update-notice-from) { margin: 0 0 16px; line-height: 1.6; }
+.update-notice-username { color: #e6ba64; user-select: all; }
+.update-notice > button { width: 100%; min-height: 44px; margin-top: 4px; border: 1px solid #e6ba64; border-radius: 7px; background: #e6ba64; color: #17202c; font: inherit; font-weight: 700; }
+.update-notice > button:focus-visible { outline-color: #e6ba64; }
+
 /* Desktop dashboard: one viewport, with overflow contained in long lists. */
 @media (min-width: 1200px) and (min-height: 640px) {
   body { min-height: 0; height: 100dvh; overflow: hidden; }

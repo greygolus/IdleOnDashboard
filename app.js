@@ -114,6 +114,21 @@ const checklistStateKey = "idleon-dashboard-checklist-state";
 const checklistSettingsKey = "idleon-dashboard-checklist-settings";
 const layoutKey = "idleon-dashboard-layout";
 const onboardingSeenKey = "idleon-dashboard-onboarding-seen";
+// Presentation metadata stays outside the saved-data and backup namespace.
+const updateNoticeKey = "idleon-dashboard.notice.2026-09-small-updates";
+const wasExistingUser = [favoriteKey, notesKey, accountLinkKey, usernameKey, rawPayloadKey, manualJsonKey, intelSourceKey, savedLinksKey, checklistItemsKey, checklistStateKey, checklistSettingsKey, layoutKey, onboardingSeenKey].some((key) => storage.getItem(key) !== null);
+if (!wasExistingUser) {
+  // Record the new-visitor cohort before rendering can create any saved defaults.
+  const excludeNewVisitor = () => {
+    try {
+      if (localStorage.getItem(updateNoticeKey) === null) localStorage.setItem(updateNoticeKey, "not-applicable");
+    } catch { /* Optional presentation metadata must never block startup. */ }
+  };
+  try {
+    if (navigator.locks) await navigator.locks.request(updateNoticeKey, excludeNewVisitor);
+    else excludeNewVisitor();
+  } catch { /* The dashboard remains usable if coordination is unavailable. */ }
+}
 const defaultChecklistItems = [
   { id: "starter-daily-buy-shop-items", text: "Buy shop items", type: "daily", done: false },
   { id: "starter-daily-register-tournament", text: "Register for tournament", type: "daily", done: false },
@@ -351,6 +366,7 @@ const ripModal = document.querySelector("#ripModal");
 const favoritesModal = document.querySelector("#favoritesModal");
 const favoritesModalList = document.querySelector("#favoritesModalList");
 const onboardingModal = document.querySelector("#onboardingModal");
+const updateNoticeModal = document.querySelector("#updateNoticeModal");
 const dontShowOnboarding = document.querySelector("#dontShowOnboarding");
 const savedLinksModal = document.querySelector("#savedLinksModal");
 const savedLinksManagerList = document.querySelector("#savedLinksManagerList");
@@ -951,9 +967,9 @@ const publicLinks = {
     { name: "Web", url: "https://www.legendsofidleon.com/", icon: "/images/thumb/a/aa/Web_Button.png/69px-Web_Button.png" }
   ],
   extras: [
-    { name: "SteamDB", url: "https://steamdb.info/app/1476970/", icon: "/images/thumb/5/53/Steam_Button.png/69px-Steam_Button.png" },
+    { name: "SteamDB", url: "https://steamdb.info/app/1476970/", icon: "assets/brands/steamdb-logo.svg" },
     { name: "Patch Notes", url: "https://idleon.wiki/wiki/Changelog/2026", icon: "/resources/assets/favicon.png" },
-    { name: "Reserved", blank: true },
+    { name: "Grey Golus · greygolus.com", url: "https://greygolus.com/", icon: "assets/brands/grey-golus-logo.webp" },
     { name: "RIP Tools", popup: "rip", icon: "/images/2/28/Graveyard_Shift.png" }
   ]
 };
@@ -2844,7 +2860,7 @@ function openDashboardDialog(dialog) {
   dialog.returnFocusTo = document.activeElement;
   dialog.showModal();
 }
-[ripModal, favoritesModal, onboardingModal, savedLinksModal].forEach((dialog) => {
+[ripModal, favoritesModal, onboardingModal, savedLinksModal, updateNoticeModal].filter(Boolean).forEach((dialog) => {
   dialog.addEventListener('close', () => {
     const opener = dialog.returnFocusTo;
     const fallback = document.querySelector(dialog === savedLinksModal ? '#browseSavedResources' : dialog === favoritesModal ? '#openFavorites' : '#openHelp');
@@ -2919,6 +2935,46 @@ function maybeShowOnboarding() {
   if (!onboardingModal || storage.getItem(onboardingSeenKey) === "true") return;
   openDashboardDialog(onboardingModal);
 }
+
+async function showStartupNotice() {
+  // A background tab waits to claim the notice until someone can actually see it.
+  if (document.hidden) {
+    const onVisible = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", onVisible);
+      void showStartupNotice();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return;
+  }
+  const claimNotice = () => {
+    if (!updateNoticeModal) return false;
+    if (document.hidden) return "deferred";
+    try {
+      if (localStorage.getItem(updateNoticeKey) !== null) return false;
+      const marker = wasExistingUser ? "seen" : "not-applicable";
+      localStorage.setItem(updateNoticeKey, marker);
+      if (localStorage.getItem(updateNoticeKey) !== marker) return false;
+    } catch {
+      // Skip an optional notice if it cannot be remembered without touching user data.
+      return false;
+    }
+    if (!wasExistingUser) return false;
+    openDashboardDialog(updateNoticeModal);
+    return true;
+  };
+  let shown = false;
+  try {
+    shown = navigator.locks ? await navigator.locks.request(updateNoticeKey, claimNotice) : claimNotice();
+  } catch { /* Notice failures must not block the dashboard. */ }
+  if (shown === "deferred") return showStartupNotice();
+  if (!shown) maybeShowOnboarding();
+}
+
+document.querySelector("#dismissUpdateNotice")?.addEventListener("click", () => updateNoticeModal.close());
+updateNoticeModal?.addEventListener("click", (event) => {
+  if (event.target === updateNoticeModal) updateNoticeModal.close();
+});
 
 document.querySelector("#closeOnboardingModal")?.addEventListener("click", () => {
   closeOnboarding(false);
@@ -3118,7 +3174,7 @@ renderChecklist();
 setInterval(updatePublicRotationTimers, 1000);
 setInterval(refreshChecklistIfResetChanged, 1000);
 render();
-maybeShowOnboarding();
+await showStartupNotice();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { updatePublicRotationTimers(); refreshChecklistIfResetChanged(); } });
 
 }

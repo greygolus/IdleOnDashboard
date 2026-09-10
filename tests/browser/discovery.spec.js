@@ -16,6 +16,7 @@ const layout = {
 async function prepare(page, overrides = {}) {
   await page.clock.install({ time: new Date('2026-09-05T12:00:00Z') });
   await page.addInitScript((values) => {
+    localStorage.setItem('idleon-dashboard.notice.2026-09-small-updates', 'seen');
     if (!sessionStorage.getItem('discovery-seeded')) {
       Object.entries(values).forEach(([key, value]) => localStorage.setItem(key, value));
       sessionStorage.setItem('discovery-seeded', 'yes');

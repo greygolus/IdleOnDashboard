@@ -11,7 +11,7 @@ async function prepare(page, values = {}) {
       Object.entries(values).forEach(([key, value]) => localStorage.setItem(key, value));
       sessionStorage.setItem('desktop-seeded', 'yes');
     }
-  }, { [P + 'onboarding-seen']: 'true', ...values });
+  }, { [P + 'onboarding-seen']: 'true', 'idleon-dashboard.notice.2026-09-small-updates': 'seen', ...values });
   await page.route(/google\.com|idleon\.wiki|_vercel\/insights/, route => route.abort());
   await page.goto('/');
   await expect(page.locator('#toolGrid .tool-card').first()).toBeVisible();

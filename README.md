@@ -23,6 +23,8 @@ Live site: https://idleondashboard.com/
 - Help, favorites, and saved-link dialogs support keyboard focus, Escape, and return to their opener. Narrow layouts use readable cards and a dock for tools, intel, data, notes, and tasks.
 - Desktop windows at least 1200px wide and 640px high keep every main section in one viewport. Long resource, task, and settings lists scroll inside their panels. Shorter or narrower windows use the scrolling layout so zoomed text and phone controls remain reachable.
 - Desktop density adapts to the available space without changing stored layout preferences, personal links, notes, or profile data.
+- The community icon panel uses SteamDB's own logo and links to greygolus.com from the second-to-last slot.
+- Existing browser profiles receive the September 2026 update notice once, with Discord contact `gyerg`. New visitors are excluded from that release notice. Its browser-local marker is separate from personal data and backups; if the marker cannot be saved, the optional notice is skipped.
 
 ## Important Data Notes
 
