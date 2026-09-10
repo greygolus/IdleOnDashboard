@@ -21,6 +21,8 @@ Live site: https://idleondashboard.com/
 - Star resources directly on their cards. My copy opens the personal sheet URL; Original opens its community source. Tool settings provides named ordering and visibility controls.
 - Explicitly showing a resource reconciles its legacy hidden flag without clearing other preferences. Reordering retains unknown and hidden entries in the stored layout.
 - Help, favorites, and saved-link dialogs support keyboard focus, Escape, and return to their opener. Narrow layouts use readable cards and a dock for tools, intel, data, notes, and tasks.
+- Desktop windows at least 1200px wide and 640px high keep every main section in one viewport. Long resource, task, and settings lists scroll inside their panels. Shorter or narrower windows use the scrolling layout so zoomed text and phone controls remain reachable.
+- Desktop density adapts to the available space without changing stored layout preferences, personal links, notes, or profile data.
 
 ## Important Data Notes
 

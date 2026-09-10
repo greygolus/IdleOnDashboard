@@ -2067,7 +2067,7 @@ textarea:focus {
 .intel-source-status { color: var(--muted); font-size: 0.875rem; line-height: 1.4; margin: 0 0 8px; }
 @media (max-width: 760px) { .storage-warning { flex-direction: column; padding: 10px; max-height: 45dvh; overflow: auto; } .backup-dialog { padding: 16px; } }
 
-/* Resource discovery: readable cards and natural page flow at every window size. */
+/* Resource discovery: readable cards and natural page flow on smaller screens. */
 body { height: auto; min-height: 100vh; overflow: auto; font-size: 16px; }
 .shell { height: auto; min-height: 100vh; max-width: 1920px; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; padding: 24px; overflow: visible; }
 .workspace { display: block; height: auto; overflow: visible; }
@@ -2199,4 +2199,155 @@ h1 { font-size: clamp(1.8rem, 2.8vw, 2.8rem); line-height: 1.08; }
   .hero .subtitle { display: none; }
   .hero-actions { gap: 6px; }
   .hero-actions button { padding-inline: 8px; font-size: 0.75rem; }
+}
+
+/* Desktop dashboard: one viewport, with overflow contained in long lists. */
+@media (min-width: 1200px) and (min-height: 640px) {
+  body { min-height: 0; height: 100dvh; overflow: hidden; }
+  .shell { width: 100%; max-width: none; height: 100dvh; min-height: 0; padding: 10px; gap: 10px; grid-template-columns: minmax(0, 1fr) clamp(420px, 32vw, 640px); overflow: hidden; }
+  .workspace { min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-rows: 54px clamp(198px, min(max(294px, 35dvh), 100dvh - 450px), 390px) minmax(0, 1fr); gap: 10px; overflow: hidden; }
+  .hero { min-height: 0; height: 100%; padding: 10px 16px; gap: 10px; }
+  .hero h1 { font-size: clamp(1.6rem, 2vw, 2.1rem); margin: 0; }
+  .hero .subtitle { display: none; }
+  .hero-actions { flex-wrap: nowrap; max-width: none; gap: 6px; }
+  .hero-actions button { min-height: 32px; padding-inline: 10px; font-size: 0.75rem; }
+  #scrollBottom, #pageBottom { display: none; }
+  .dashboard-section { margin: 0; min-width: 0; min-height: 0; gap: 6px; }
+  .section-heading { min-height: 26px; gap: 6px; }
+  .section-heading h2 { font-size: 0.95rem; }
+  .section-tools button { min-height: 28px; padding: 0 10px; font-size: 0.75rem; }
+  #toolsSection { grid-template-rows: 24px 44px 22px minmax(0, 1fr); overflow: hidden; }
+  .resource-toolbar { min-width: 0; padding: 4px 6px; gap: 8px; flex-wrap: nowrap; }
+  .resource-views { padding: 2px; gap: 2px; align-self: center; flex-shrink: 0; }
+  .resource-toolbar button, .resource-summary button { min-height: 28px; padding: 4px 8px; font-size: 0.75rem; }
+  .resource-toolbar label { gap: 2px; font-size: 0.6875rem; }
+  .resource-search { flex: 1 1 140px; }
+  .resource-filter { flex: 0 1 145px; }
+  .resource-toolbar input, .resource-toolbar select { height: 28px; padding: 3px 7px; font-size: 0.75rem; }
+  .resource-clear { flex-shrink: 0; }
+  .resource-summary { min-width: 0; gap: 8px; }
+  .resource-summary p { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #toolsSection .grid, #toolsSection.tools-compact-section .grid { min-height: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(90px, 1fr); align-content: start; gap: 6px; overflow: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+  #toolsSection.tools-compact-section .grid { grid-auto-rows: 90px; }
+  #toolsSection .tool-card, #toolsSection.tools-compact-section .tool-card { display: grid; grid-template-columns: 26px minmax(0, 1fr) 26px; grid-template-rows: minmax(30px, 1fr) 26px 16px; min-height: 90px; height: auto; padding: 5px; gap: 2px; align-items: center; border-radius: 7px; box-shadow: none; }
+  #toolsSection .card-top, #toolsSection.tools-compact-section .card-top { display: contents; }
+  #toolsSection .favicon, #toolsSection .saved-tool-icon, #toolsSection.tools-compact-section .favicon, #toolsSection.tools-compact-section .saved-tool-icon { grid-column: 1; grid-row: 1; width: 26px; height: 26px; padding: 2px; font-size: 0.6rem; }
+  #toolsSection .favorite, #toolsSection.tools-compact-section .favorite { grid-column: 3; grid-row: 1; width: 26px; height: 28px; min-height: 28px; font-size: 1rem; }
+  #toolsSection .tool-card > div:nth-of-type(2), #toolsSection.tools-compact-section .tool-card > div:nth-of-type(2) { grid-column: 2; grid-row: 1; }
+  #toolsSection .tool-card h2, #toolsSection.tools-compact-section .tool-card h2 { font-size: 0.75rem; line-height: 1.2; margin: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  #toolsSection .category, #toolsSection .description { display: none; }
+  #toolsSection .card-actions, #toolsSection.tools-compact-section .card-actions { display: flex; flex-wrap: nowrap; grid-column: 1 / -1; grid-row: 2; margin: 0; gap: 4px; }
+  #toolsSection .primary-action, #toolsSection .copy-link, #toolsSection.tools-compact-section .copy-link { min-height: 26px; height: 26px; padding: 3px 4px; font-size: 0.7rem; box-shadow: none; }
+  #toolsSection .primary-action::before { width: 12px; height: 12px; }
+  #toolsSection .resource-visibility, #toolsSection.tools-compact-section .resource-visibility { grid-column: 1 / -1; grid-row: 3; justify-self: start; min-height: 16px; padding: 0; font-size: 0.6875rem; line-height: 1.2; }
+  #toolsSection .empty-state { min-height: 0; padding: 10px; }
+  #toolsSection .empty-state h3 { font-size: 1rem; margin: 0; }
+  #toolsSection .empty-state p { font-size: 0.8rem; }
+  .intel-workbench { margin: 0; min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(250px, 1fr); gap: 8px; overflow: hidden; }
+  .intel-section { min-height: 0; height: 100%; grid-template-rows: 26px auto minmax(0, 1fr); gap: 4px; }
+  .intel-source-status { margin: 0; font-size: 0.7rem; line-height: 1.3; }
+  .rotation-grid { min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr) 116px; grid-auto-rows: auto; gap: 5px; overflow: hidden; align-items: stretch; }
+  .rotation-card, .utility-card { min-height: 0; padding: 6px; gap: 4px; }
+  .rotation-card { align-self: stretch; overflow: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+  .rotation-card > * { flex-shrink: 0; }
+  .rotation-quick-events { grid-column: 1; grid-row: 1 / 4; }
+  .rotation-grid [data-card-id="rate-card"] { grid-column: 2 / 4; grid-row: 3; }
+  .rotation-top { gap: 4px; }
+  .rotation-top img { width: 23px; height: 23px; padding: 2px; flex-shrink: 0; }
+  .rotation-top .category { font-size: 0.65rem; margin: 0; }
+  .rotation-card h3 { font-size: 0.75rem; line-height: 1.2; }
+  .rotation-detail, .mini-list, .event-stack small { font-size: 0.6875rem; line-height: 1.25; }
+  .mini-list { gap: 3px; }
+  .mini-list img { width: 15px; height: 15px; }
+  .mini-list li { gap: 3px; }
+  .event-stack { gap: 3px; }
+  .event-stack div { padding: 3px; gap: 2px; border-width: 1px; }
+  .event-stack small { font-size: 0.65625rem; }
+  .rotation-quick-events .rotation-top img { width: 20px; height: 20px; }
+  .event-stack span, .event-stack .event-row-title em { font-size: 0.625rem; }
+  .event-stack strong, .countdown { font-size: 0.75rem; }
+  .rate-card .panel-heading { margin: 0; }
+  .rate-card .panel-heading h2 { font-size: 0.8rem; }
+  .rate-card .panel-heading span { display: none; }
+  .rate-inputs { gap: 5px; grid-template-columns: minmax(0, 1fr) minmax(70px, 0.65fr); }
+  .rate-inputs label { gap: 2px; }
+  .rate-inputs label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .rate-inputs input, .rate-inputs select { min-height: 26px; height: 26px; padding: 3px 6px; font-size: 0.75rem; }
+  .rate-results { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; margin-top: 3px; }
+  .rate-results div { min-height: 30px; padding: 3px; gap: 2px; }
+  .rate-results span { font-size: 0.625rem; line-height: 1.1; }
+  .rate-results strong { font-size: 0.7rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .checklist-section { height: 100%; min-height: 0; grid-template-rows: 26px minmax(0, 1fr); gap: 4px; }
+  .checklist-section .checklist-card { min-height: 0; height: 100%; display: grid; grid-template-areas: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); gap: 5px; align-content: stretch; align-items: stretch; overflow: hidden; }
+  .checklist-card-meta, .checklist-controls, .checklist-add, .checklist-list { grid-column: 1; grid-row: auto; min-width: 0; min-height: 0; margin: 0; }
+  .checklist-card-meta { justify-content: flex-start; }
+  .checklist-controls input { min-height: 26px; height: 26px; padding: 2px 6px; font-size: 0.75rem; }
+  .checklist-add { grid-template-columns: 90px minmax(0, 1fr) auto; gap: 4px; }
+  .checklist-add input, .checklist-add select, .checklist-add button { min-height: 28px; padding: 3px 5px; font-size: 0.7rem; }
+  .checklist-list { overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; align-content: start; gap: 6px; }
+  .checklist-group { gap: 3px; }
+  .checklist-group h3 { font-size: 0.7rem; margin: 2px 0; }
+  .checklist-group .saved-links-empty { font-size: 0.7rem; margin: 0; }
+  .checklist-item { gap: 4px; }
+  .checklist-item label { min-height: 28px; padding: 4px; gap: 4px; font-size: 0.75rem; }
+  .checklist-item button { min-height: 28px; padding: 3px 5px; font-size: 0.6875rem; }
+  .side-panel { display: grid; min-width: 0; min-height: 0; height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: 64px minmax(0, 1fr) 250px minmax(85px, 0.45fr); gap: 8px; overflow: hidden; }
+  .side-panel section { min-width: 0; min-height: 0; height: 100%; padding: 7px; align-self: stretch; overflow: auto; scrollbar-width: thin; overscroll-behavior: contain; box-shadow: none; }
+  .side-panel .link-pad { grid-column: 1 / -1; grid-row: 1; padding: 5px; overflow: hidden; }
+  .side-panel [data-side-id="controls"] { grid-column: 1; grid-row: 2; }
+  .side-panel [data-side-id="saved"] { grid-column: 2; grid-row: 2; }
+  #toolboxPanel { grid-column: 1; grid-row: 3; }
+  .side-panel [data-side-id="manual"] { grid-column: 2; grid-row: 3; }
+  #notesPanel { grid-column: 1 / -1; grid-row: 4; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+  #notes { min-height: 0; height: 100%; resize: none; padding: 8px; font-size: 0.85rem; }
+  .panel-heading { min-width: 0; margin-bottom: 5px; gap: 4px; }
+  .panel-heading h2 { font-size: 0.8rem; }
+  .panel-heading span { font-size: 0.6875rem; }
+  .panel-heading > button { min-height: 26px; padding: 2px 5px; font-size: 0.7rem; }
+  .help-dot, .panel-heading > .help-dot { min-height: 20px; height: 20px; width: 20px; flex-basis: 20px; font-size: 0.6875rem; }
+  .link-pad .icon-links { grid-template-columns: repeat(12, minmax(0, 1fr)); height: 100%; gap: 4px; }
+  .link-pad .icon-link { min-height: 0; height: 100%; padding: 2px; }
+  .icon-link img { max-width: 100%; max-height: 30px; }
+  .icon-link.blank-icon::before { width: 16px; height: 16px; }
+  #quickList { gap: 4px; }
+  #quickList .control-row { grid-template-columns: 22px minmax(0, 1fr) 22px 22px 28px; gap: 2px; padding: 3px; }
+  #quickList .control-row button, #quickList .control-row a { min-height: 28px; padding: 2px; font-size: 0.6875rem; }
+  #quickList .control-row .control-open { font-size: 0.7rem; line-height: 1.2; }
+  .saved-link-form, .account-panel { gap: 5px; }
+  .saved-link-form .sync-meta, .toolbox-help, .account-panel > .sync-meta:not(#syncMeta) { display: none; }
+  .saved-link-form label, .account-panel label { gap: 2px; font-size: 0.7rem; }
+  .saved-link-form input, .account-panel input, .saved-link-form button, .account-panel button { min-height: 28px; padding: 4px 6px; font-size: 0.75rem; }
+  .button-row { gap: 4px; }
+  #copyLilBoProfile { display: none; }
+  #syncMeta { margin: 0; font-size: 0.6875rem; line-height: 1.3; }
+  .saved-links { gap: 5px; margin-top: 6px; }
+  .saved-link { padding: 5px; gap: 4px; }
+  .saved-link strong { font-size: 0.75rem; }
+  .saved-link a, .saved-link input, .saved-links-more { min-height: 26px; padding: 3px 5px; font-size: 0.7rem; }
+}
+
+@media (min-width: 1500px) and (min-height: 850px) {
+  .workspace { grid-template-rows: 64px clamp(330px, 35dvh, 420px) minmax(0, 1fr); }
+  .hero-actions button, .section-tools button, .resource-toolbar button, .resource-summary button { min-height: 32px; font-size: 0.8rem; }
+  .resource-toolbar input, .resource-toolbar select, .resource-summary p { font-size: 0.8rem; }
+  #toolsSection .tool-card h2 { font-size: 0.9rem; }
+  #toolsSection:not(.tools-compact-section) .description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 0.75rem; line-height: 1.3; margin-top: 4px; }
+  #toolsSection .primary-action, #toolsSection .copy-link { font-size: 0.8rem; }
+  .rotation-card { padding: 10px; gap: 8px; }
+  .rotation-card h3 { font-size: 0.9rem; }
+  .rotation-top .category, .intel-source-status { font-size: 0.75rem; }
+  .rotation-detail, .mini-list { font-size: 0.8rem; line-height: 1.35; }
+  .mini-list { gap: 6px; }
+  .mini-list img { width: 18px; height: 18px; }
+  .event-stack { gap: 6px; }
+  .event-stack div { padding: 7px; gap: 4px; }
+  .event-stack span, .event-stack .event-row-title em { font-size: 0.75rem; }
+  .event-stack strong, .countdown { font-size: 0.9rem; }
+  .event-stack small { font-size: 0.75rem; }
+  .panel-heading h2 { font-size: 0.9rem; }
+  .panel-heading span, .saved-link-form label, .account-panel label, #syncMeta { font-size: 0.75rem; }
+  #quickList .control-row { padding: 4px; }
+  #quickList .control-row button, #quickList .control-row a, #quickList .control-row .control-open { min-height: 32px; font-size: 0.75rem; }
+  .checklist-add { grid-template-columns: 120px minmax(0, 1fr) auto; }
+  .checklist-add input, .checklist-add select, .checklist-add button, .checklist-item label { min-height: 32px; font-size: 0.8rem; }
 }
