@@ -98,6 +98,14 @@ const tools = [
     url: "https://idleon.guide/category/guides/",
     description: "Community guide articles for broader Idleon topics. Useful as a reference, though Discord and wiki info may be newer.",
     tags: ["guides", "articles", "reference"]
+  },
+  {
+    id: "idleoneer",
+    name: "Idleoneer",
+    category: "Review",
+    url: "https://idleoneer.com/account",
+    description: "IdleOn companion for account data, Weekly Battle, and World 7 tools.",
+    tags: ["account", "weekly battle", "world 7"]
   }
 ];
 

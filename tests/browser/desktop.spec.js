@@ -33,7 +33,7 @@ for (const [width, height] of desktopSizes) {
       await expect(page.locator(selector)).toBeInViewport({ ratio: 1 });
     }
     if (height >= 768) {
-      await expect(page.locator('#toolGrid .tool-card')).toHaveCount(9);
+      await expect(page.locator('#toolGrid .tool-card')).toHaveCount(10);
       for (const card of await page.locator('#toolGrid .tool-card').all()) await expect(card).toBeInViewport({ ratio: 1 });
     }
     await expect(page.getByRole('textbox', { name: 'Amount', exact: true })).toBeVisible();
@@ -60,7 +60,7 @@ test('upgrading and resizing preserve saved data while long panels remain usable
   const before = await raw();
   await page.unroute('**/styles.css');
   await page.reload();
-  await expect(page.locator('#toolGrid .tool-card')).toHaveCount(45);
+  await expect(page.locator('#toolGrid .tool-card')).toHaveCount(46);
   for (const [width, height] of [...desktopSizes, [390, 844], [960, 540], [1366, 768]]) {
     await page.setViewportSize({ width, height });
     if (width >= 1200) await expectDesktopFit(page);

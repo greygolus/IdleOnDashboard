@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const P = 'idleon-dashboard-';
 const personalUrl = 'https://example.com/my-sheet?x=1&y=2#my-tab';
 const saved = [
+  { id: 'preset-sampling-skilling-checklist', name: 'Sampling and Skilling Checklist', personalUrl, type: 'sheet', preset: true, showInTools: false, inControls: false, favorite: false, extra: { keep: 'sampling copy' } },
   { id: 'personal', name: 'My sample sheet', url: 'https://example.com/original', personalUrl, type: 'sheet', preset: true, showInTools: true, inControls: true, favorite: true, note: 'Unique alchemy planning', extra: { keep: 1 } },
   { id: 'custom', name: 'Idleon Toolbox', url: 'https://example.com/custom', type: 'manual', showInTools: true, inControls: true, favorite: false },
   { id: 'hidden', name: 'Legacy hidden link', url: 'https://example.com/hidden', type: 'manual', showInTools: true, inControls: true },
@@ -9,7 +10,7 @@ const saved = [
   { id: 'retired-hidden', name: 'Deliberately hidden preset', url: 'https://example.com/retired', type: 'sheet', preset: true, hiddenPreset: true, showInTools: true }
 ];
 const layout = {
-  tools: { collapsed: false, compact: false, hidden: ['ie-auto-review', 'saved-link-hidden'], order: ['idleon-wiki', 'saved-link-personal', 'future-resource', 'ie-auto-review', 'saved-link-custom', 'idleon-toolbox', 'research-optimizer', 'saved-link-hidden'], sizes: {}, extra: 'preserve' },
+  tools: { collapsed: false, compact: false, hidden: ['ie-auto-review', 'saved-link-hidden'], order: ['idleon-wiki', 'saved-link-personal', 'future-resource', 'ie-auto-review', 'saved-link-custom', 'idleon-toolbox', 'research-optimizer', 'saved-link-hidden'], sizes: { 'idleon-wiki': 'wide', 'saved-link-preset-sampling-skilling-checklist': 'tall', 'future-resource': 'big' }, extra: 'preserve' },
   sidebar: { order: ['saved', 'toolbox', 'links', 'controls', 'manual'], extra: 2 },
   future: { original: true }
 };
@@ -30,10 +31,19 @@ const card = (page, id) => page.locator(`#toolGrid [data-card-id="${id}"]`);
 const ids = page => page.locator('#toolGrid .tool-card').evaluateAll(cards => cards.map(card => card.dataset.cardId));
 const raw = page => page.evaluate(P => Object.fromEntries(Object.entries(localStorage).filter(([key]) => key.startsWith(P) && !key.startsWith(P+'recovery-'))), P);
 
+test('Idleoneer is resource ten before the sampling checklist in the default library', async ({ page }) => {
+  await prepare(page, { [P+'saved-links']: '[]', [P+'layout']: '{}' });
+  const before = await raw(page);
+  await page.getByRole('button', { name: 'All resources', exact: true }).click();
+  expect((await ids(page)).slice(9, 11)).toEqual(['idleoneer', 'saved-link-preset-sampling-skilling-checklist']);
+  await expect(card(page, 'idleoneer').getByRole('link', { name: 'Open: Idleoneer', exact: true })).toHaveAttribute('href', 'https://idleoneer.com/account');
+  expect(await raw(page)).toEqual(before);
+});
+
 test('both densities expose the same complete chosen catalog and preserve layout data', async ({ page }) => {
   await prepare(page);
   const before = await raw(page), fullIds = await ids(page);
-  expect(fullIds.length).toBe(10);
+  expect(fullIds.length).toBe(11);
   expect(fullIds).toContain('idleon-guide-articles');
   expect(fullIds).toContain('saved-link-personal');
   expect(fullIds).not.toContain('saved-link-hidden');
@@ -51,7 +61,7 @@ test('both densities expose the same complete chosen catalog and preserve layout
 
 test('search, categories and library are read-only and preserve input focus', async ({ page }) => {
   await prepare(page);
-  const before = await raw(page);
+  const before = await raw(page), dashboardIds = await ids(page);
   const search = page.getByRole('searchbox',{name:'Find a tool or link'});
   await search.fill('  UNIQUE    alchemy ');
   expect(await ids(page)).toEqual(['saved-link-personal']);
@@ -64,9 +74,14 @@ test('search, categories and library are read-only and preserve input focus', as
   await expect(card(page,'ie-auto-review')).toBeVisible();
   await expect(card(page,'saved-link-hidden')).toBeVisible();
   await expect(card(page,'saved-link-library-only')).toBeVisible();
+  await expect(card(page,'saved-link-preset-sampling-skilling-checklist').getByRole('link', { name: 'My copy: Sampling and Skilling Checklist', exact: true })).toHaveAttribute('href', personalUrl);
   await expect(card(page,'saved-link-retired-hidden')).toHaveCount(0);
   await page.locator('#resourceCategory').selectOption('favorites');
   expect(await ids(page)).toEqual(['idleon-wiki','saved-link-personal','saved-link-library-only']);
+  expect(await raw(page)).toEqual(before);
+  await page.reload();
+  await expect(card(page,'idleon-wiki')).toBeVisible();
+  expect(await ids(page)).toEqual(dashboardIds);
   expect(await raw(page)).toEqual(before);
 });
 
