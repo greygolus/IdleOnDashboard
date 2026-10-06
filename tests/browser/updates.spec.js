@@ -18,6 +18,7 @@ async function prepare(page, values = {}) {
     }
   }, values);
   await page.route(/google\.com|idleon\.wiki|_vercel\/insights/, route => route.abort());
+  await page.route('**/api/weekly-battle', route => route.fulfill({ status: 503, json: { error: 'Sheet unavailable in this test' } }));
   await page.goto('/');
   await expect(page.locator('#toolGrid .tool-card').first()).toBeVisible();
 }
@@ -114,6 +115,7 @@ test('an existing background visitor claims the notice only on becoming visible'
 test('simultaneous tabs claim a single notice across the browser profile', async ({ context, page }) => {
   await context.addInitScript(values => Object.entries(values).forEach(([key, value]) => localStorage.setItem(key, value)), existingData);
   await context.route(/google\.com|idleon\.wiki|_vercel\/insights/, route => route.abort());
+  await context.route('**/api/weekly-battle', route => route.fulfill({ status: 503, json: { error: 'Sheet unavailable in this test' } }));
   const other = await context.newPage();
   await Promise.all([page.goto('/'), other.goto('/')]);
   await expect.poll(async () => (await Promise.all([page, other].map(p => p.locator('#updateNoticeModal').isVisible()))).filter(Boolean).length).toBe(1);

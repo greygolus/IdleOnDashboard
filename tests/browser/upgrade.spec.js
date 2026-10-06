@@ -37,6 +37,7 @@ async function prepare(page, values = fixture()) {
     }
   }, values);
   await page.route(/google\.com|idleon\.wiki|_vercel\/insights/, (route) => route.abort());
+  await page.route('**/api/weekly-battle', route => route.fulfill({ status: 503, json: { error: 'Sheet unavailable in this test' } }));
   await page.goto("/");
   await expect(page.locator("#toolGrid .tool-card").first()).toBeVisible();
 }

@@ -90,6 +90,14 @@ const server = http.createServer((request, response) => {
     proxyProfile(request, response, url);
     return;
   }
+  if (url.pathname === "/api/weekly-battle") {
+    response.status = (code) => { response.statusCode = code; return response; };
+    response.json = (value) => { response.setHeader("Content-Type", "application/json; charset=utf-8"); response.end(JSON.stringify(value)); };
+    require("./api/weekly-battle")(request, response).catch(() => {
+      if (!response.writableEnded) send(response, 502, "Weekly routes unavailable");
+    });
+    return;
+  }
   if (["/images", "/resources", "/wiki"].some((prefix) => url.pathname.startsWith(prefix))) {
     proxyWiki(request, response, url);
     return;

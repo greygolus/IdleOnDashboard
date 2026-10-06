@@ -7,6 +7,10 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/weekly-battle.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "index.html",
       "use": "@vercel/static"
     },
@@ -47,6 +51,10 @@
     {
       "src": "/api/profiles",
       "dest": "/api/profiles.js"
+    },
+    {
+      "src": "/api/weekly-battle",
+      "dest": "/api/weekly-battle.js"
     },
     {
       "src": "/",

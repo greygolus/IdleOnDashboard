@@ -343,6 +343,12 @@ const state = {
   draggedCard: null
 };
 
+const weeklyBattleSourceUrl = "https://docs.google.com/spreadsheets/d/1z1P2ouvYhe2pryWoF0kIQE7QichYpJt1GaPPos-e-aw/htmlview?gid=0";
+let weeklyBattleGuide = { status: "loading", run: null };
+let weeklyBattleRequestPending = false;
+let weeklyBattleLastAttempt = null;
+let weeklyBattleRequestWeek = null;
+
 const grid = document.querySelector("#toolGrid");
 const quickList = document.querySelector("#quickList");
 const toolCount = document.querySelector("#toolCount");
@@ -1764,7 +1770,77 @@ function renderItemList(items = []) {
   `;
 }
 
+function renderWeeklyBattleGuide() {
+  const host = rotationGrid.querySelector('.weekly-battle-guide');
+  if (!host) return;
+  const run = weeklyBattleGuide.run;
+  const now = Date.now();
+  const current = run && now >= Date.parse(run.start) && now < Date.parse(run.end);
+  const bossMatches = current && run.boss.toLowerCase().replace(/[^a-z0-9]/g, '') === getWeeklyBossData().boss.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const source = `<a class="weekly-battle-source" href="${weeklyBattleSourceUrl}" target="_blank" rel="noopener noreferrer">Open rotation sheet</a>`;
+  if (!bossMatches) {
+    const message = weeklyBattleGuide.status === 'loading' ? 'Loading weekly routes…'
+      : weeklyBattleGuide.status === 'error' ? 'Weekly routes are unavailable. Check the rotation sheet.'
+      : current ? 'The sheet lists a different boss. Check the rotation sheet.'
+      : 'This week’s routes are not posted yet. Check the rotation sheet.';
+    host.innerHTML = `<p class="weekly-battle-status" role="status">${message}</p>${source}`;
+    return;
+  }
+  const format = value => new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
+  host.innerHTML = `
+    <p class="weekly-battle-dates"><span>Current run</span><time datetime="${escapeHtml(run.start)}">${format(run.start)}</time> to <time datetime="${escapeHtml(run.end)}">${format(run.end)}</time> · UTC</p>
+    <div class="weekly-battle-requirements">
+      <h4>Character requirements <span>Slots</span></h4>
+      <dl>${run.requirements.map(item => `<div><dt>${escapeHtml(item.name)}</dt><dd>${escapeHtml(item.characters)}</dd></div>`).join('')}</dl>
+    </div>
+    <div class="weekly-battle-routes">
+      ${run.routes.map((route, index) => `<section class="weekly-battle-route"><h4>${escapeHtml(route.name)}${index === 1 ? `<span>${run.trophies} trophies</span>` : ''}</h4><p>${route.lines.map(line => `<span>${escapeHtml(line)}</span>`).join('')}</p></section>`).join('')}
+    </div>
+    <dl class="weekly-battle-bonuses">${run.bonuses.map(bonus => `<div><dt>${escapeHtml(bonus.name)}</dt><dd>${escapeHtml(bonus.value)}</dd></div>`).join('')}</dl>
+    <p class="weekly-battle-assumptions">Bonus estimates use the sheet’s wiki levels at 50% maximum efficiency.</p>
+    <p class="weekly-battle-legend">Read left to right, top to bottom. 1 / 2 / 3 = top / middle / bottom choice. FR = full rewind.</p>
+    ${weeklyBattleGuide.status === 'error' ? '<p class="weekly-battle-status" role="status">Could not refresh. Showing the last loaded routes for this week.</p>' : ''}
+    ${source}
+  `;
+}
+
+async function refreshWeeklyBattleGuide() {
+  const now = Date.now(), week = currentWikiWeek();
+  const run = weeklyBattleGuide.run;
+  const matches = run && now >= Date.parse(run.start) && now < Date.parse(run.end)
+    && run.boss.toLowerCase().replace(/[^a-z0-9]/g, '') === getWeeklyBossData().boss.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const retryDelay = weeklyBattleGuide.status === 'error' ? 5 * 60 * 1000 : matches ? 15 * 60 * 1000 : 60 * 1000;
+  if (weeklyBattleRequestPending || (weeklyBattleRequestWeek === week && weeklyBattleLastAttempt !== null && now - weeklyBattleLastAttempt < retryDelay)) return;
+  weeklyBattleRequestPending = true;
+  weeklyBattleLastAttempt = now;
+  weeklyBattleRequestWeek = week;
+  try {
+    const response = await fetch('/api/weekly-battle', { signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error('Weekly routes unavailable');
+    const { run } = await response.json();
+    if (!isRecord(run) || typeof run.boss !== 'string' || !Number.isFinite(Date.parse(run.start)) || !Number.isFinite(Date.parse(run.end)) || Date.parse(run.end) <= Date.parse(run.start)
+      || !Array.isArray(run.requirements) || !run.requirements.length || !run.requirements.every(item => isRecord(item) && typeof item.name === 'string' && typeof item.characters === 'string')
+      || !Array.isArray(run.routes) || run.routes.length !== 2 || !run.routes.every(route => isRecord(route) && typeof route.name === 'string' && Array.isArray(route.lines) && route.lines.length && route.lines.every(line => typeof line === 'string'))
+      || !Number.isInteger(run.trophies) || run.trophies < 0
+      || !Array.isArray(run.bonuses) || !run.bonuses.every(bonus => isRecord(bonus) && typeof bonus.name === 'string' && typeof bonus.value === 'string')) throw new Error('Invalid weekly routes');
+    weeklyBattleGuide = { status: 'ready', run };
+  } catch {
+    weeklyBattleGuide = { ...weeklyBattleGuide, status: 'error' };
+  } finally {
+    weeklyBattleRequestPending = false;
+    const card = rotationGrid.querySelector('.rotation-weekly-battle');
+    const scrollTop = card?.scrollTop || 0;
+    const focused = document.activeElement?.classList.contains('weekly-battle-source');
+    renderWeeklyBattleGuide();
+    if (card) card.scrollTop = scrollTop;
+    if (focused) card?.querySelector('.weekly-battle-source')?.focus({ preventScroll: true });
+  }
+}
+
 function renderPublicRotations() {
+  const previousWeeklyCard = rotationGrid.querySelector('.rotation-weekly-battle');
+  const weeklyScrollTop = previousWeeklyCard?.scrollTop || 0;
+  const weeklySourceFocused = document.activeElement?.classList.contains('weekly-battle-source');
   syncLocalWeeklyRotations();
   const sourceLabel = document.querySelector("#intelSourceStatus");
   const resolved = resolveIntelSource();
@@ -1816,6 +1892,7 @@ function renderPublicRotations() {
       ${quickEvents || (featuredTime ? `<div class="countdown" data-countdown-card="${rotation.id}">${featuredTime}</div>` : "")}
       ${rotation.showDetail === false ? "" : `<p class="rotation-detail">${rotation.detail || ""}</p>`}
       ${renderItemList(rotation.items)}
+      ${rotation.id === 'weekly-battle' ? '<div class="weekly-battle-guide"></div>' : ''}
     `;
     setupCustomCard(card, "intel", rotation.id);
     if (rotation.url) {
@@ -1829,11 +1906,15 @@ function renderPublicRotations() {
     setupCustomCard(card, "intel", card.dataset.cardId);
   });
   applySectionLayout("intel");
+  renderWeeklyBattleGuide();
+  const weeklyCard = rotationGrid.querySelector('.rotation-weekly-battle');
+  if (weeklyCard) weeklyCard.scrollTop = weeklyScrollTop;
+  if (weeklySourceFocused) weeklyCard?.querySelector('.weekly-battle-source')?.focus({ preventScroll: true });
 }
 
 function updatePublicRotationTimers() {
   const minute = Math.floor(Date.now() / 60000);
-  if (minute !== lastIntelMinute) { lastIntelMinute = minute; renderPublicRotations(); }
+  if (minute !== lastIntelMinute) { lastIntelMinute = minute; renderPublicRotations(); refreshWeeklyBattleGuide(); }
   publicRotations.forEach((rotation) => {
     if (rotation.id === "quick-events") {
       const weeklyResetTarget = rotation.weeklyResetTarget || (rotation.weeklyResetDate ? getWeeklyTarget(rotation.weeklyResetDate) : null);
@@ -3176,6 +3257,7 @@ setManualJsonStatus();
 
 renderIconLinks(wikiLinks, [...publicLinks.communities, ...publicLinks.platforms, ...publicLinks.extras]);
 renderPublicRotations();
+refreshWeeklyBattleGuide();
 renderRateCalculator();
 renderSavedLinks();
 renderChecklist();

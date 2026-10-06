@@ -8,6 +8,7 @@ Live site: https://idleondashboard.com/
 
 - Launches popular IdleOn tools from one page.
 - Shows Current Intel for events, weekly reset, weekly battle, lab rotation, exotic market, and Multi Meritocracy.
+- Includes weekly battle requirements, routes, and bonuses from the community rotation sheet. Routes refresh automatically and only appear when the run dates and boss match the current week.
 - Uses public IdleOn Toolbox profile data when you enter a Toolbox username and click `Check Profile`.
 - Lets you paste manual JSON and use it as the Current Intel data source.
 - Stores community sheets and personal links locally in your browser.
